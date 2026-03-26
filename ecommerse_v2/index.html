@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Electric Billing App</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #0B1E2E 0%, #1a3a52 100%);
+            color: #FFFFFF;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            width: 100%;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .logo {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        
+        .header h1 {
+            font-size: 42px;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #ADD8E6, #FFD700);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .header p {
+            font-size: 18px;
+            color: #FFD700;
+            opacity: 0.9;
+        }
+        
+        .features-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        
+        .feature-card {
+            background: rgba(173, 216, 230, 0.1);
+            border: 2px solid #ADD8E6;
+            border-radius: 12px;
+            padding: 24px;
+            text-align: center;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 24px rgba(173, 216, 230, 0.2);
+            border-color: #FFD700;
+        }
+        
+        .feature-icon {
+            font-size: 40px;
+            margin-bottom: 12px;
+        }
+        
+        .feature-card h3 {
+            color: #FFD700;
+            margin-bottom: 8px;
+            font-size: 18px;
+        }
+        
+        .feature-card p {
+            font-size: 14px;
+            opacity: 0.8;
+            line-height: 1.5;
+        }
+        
+        .info-section {
+            background: rgba(173, 216, 230, 0.05);
+            border: 2px solid #ADD8E6;
+            border-radius: 12px;
+            padding: 32px;
+            margin-bottom: 32px;
+        }
+        
+        .info-section h2 {
+            color: #FFD700;
+            margin-bottom: 16px;
+            font-size: 24px;
+        }
+        
+        .info-section p {
+            line-height: 1.8;
+            opacity: 0.9;
+            margin-bottom: 12px;
+        }
+        
+        .color-scheme {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-top: 20px;
+        }
+        
+        .color-box {
+            height: 80px;
+            border-radius: 8px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding: 8px;
+            color: #0B1E2E;
+            font-weight: bold;
+            font-size: 12px;
+            text-align: center;
+        }
+        
+        .color-primary {
+            background: #ADD8E6;
+        }
+        
+        .color-accent {
+            background: #FFD700;
+        }
+        
+        .color-white {
+            background: #FFFFFF;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 16px;
+            margin-top: 24px;
+        }
+        
+        .stat-item {
+            background: rgba(255, 215, 0, 0.1);
+            border: 1px solid #FFD700;
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            color: #FFD700;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+        
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #FFD700, #FFC700);
+            color: #0B1E2E;
+            padding: 14px 32px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 16px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+            text-align: center;
+        }
+        
+        .cta-button:hover {
+            transform: scale(1.02);
+            box-shadow: 0 8px 24px rgba(255, 215, 0, 0.4);
+        }
+        
+        .footer {
+            text-align: center;
+            padding-top: 32px;
+            border-top: 1px solid rgba(173, 216, 230, 0.2);
+            opacity: 0.6;
+            font-size: 12px;
+        }
+        
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 32px;
+            }
+            
+            .feature-card {
+                padding: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">⚡</div>
+            <h1>Electric Billing App</h1>
+            <p>Power Distribution Ltd - Client Dashboard</p>
+        </div>
+        
+        <div class="features-section">
+            <div class="feature-card">
+                <div class="feature-icon">📊</div>
+                <h3>Client Dashboard</h3>
+                <p>View your account status, current bill amount, and connection details at a glance</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">⚡</div>
+                <h3>Usage Tracking</h3>
+                <p>Monitor daily and monthly electricity consumption with detailed analytics and charts</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">💳</div>
+                <h3>Payment Options</h3>
+                <p>Multiple payment methods including UPI, online banking, cards, and more</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">ℹ️</div>
+                <h3>Company Info</h3>
+                <p>Learn about our services, certifications, and commitment to excellence</p>
+            </div>
+        </div>
+        
+        <div class="info-section">
+            <h2>🎨 Design Features</h2>
+            <p>Our app uses a modern color scheme with:</p>
+            
+            <div class="color-scheme">
+                <div>
+                    <div class="color-box color-primary">Light Blue #ADD8E6</div>
+                </div>
+                <div>
+                    <div class="color-box color-accent">Yellow #FFD700</div>
+                </div>
+                <div>
+                    <div class="color-box color-white">White #FFFFFF</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="info-section">
+            <h2>📱 App Sections</h2>
+            <p><strong>Dashboard:</strong> View current bill, account status, and billing period details</p>
+            <p><strong>Usage:</strong> Track weekly and monthly electricity usage patterns with efficiency tips</p>
+            <p><strong>Payment:</strong> 6+ payment methods with step-by-step instructions and payment history</p>
+            <p><strong>Company:</strong> Information about Power Distribution Ltd, services, certifications, and support</p>
+        </div>
+        
+        <div class="info-section">
+            <h2>📊 Company Stats</h2>
+            <div class="stats">
+                <div class="stat-item">
+                    <div class="stat-value">2.5M+</div>
+                    <div class="stat-label">Active Customers</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">5 States</div>
+                    <div class="stat-label">Service Coverage</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">35%</div>
+                    <div class="stat-label">Green Energy</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">Est. 1995</div>
+                    <div class="stat-label">Year Founded</div>
+                </div>
+            </div>
+        </div>
+        
+        <button class="cta-button">Run the App with: npm start</button>
+        
+        <div class="footer">
+            <p>© 2026 Power Distribution Ltd. All rights reserved.</p>
+            <p>Built with React Native & Expo</p>
+        </div>
+    </div>
+</body>
+</html>
