@@ -1,432 +1,255 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+  Alert,
+} from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 
 export default function PaymentSection({ colors }) {
-  const [selectedPayment, setSelectedPayment] = useState('online');
+  const [receipt, setReceipt] = useState(null);
+  const [submitted, setSubmitted] = useState(false);
 
-  const paymentMethods = [
-  
-    
-    {
-      id: 'card',
-      name: 'Credit/Debit Card',
-      icon: '💳',
-      description: 'Visa, Mastercard, RuPay',
-    },
-    {
-      id: 'wallet',
-      name: 'Digital Wallet',
-      icon: '👛',
-      description: 'Amazon Pay, Apple Pay',
-    },
-    {
-      id: 'cash',
-      name: 'Cash Payment',
-      icon: '💵',
-      description: 'At collection center',
-    },
-  ];
+  const bill = {
+    amount: 2450,
+    dueDate: 'March 15, 2026',
+    status: 'Unpaid',
+    accountNumber: 'ACC-2024-987654',
+  };
 
   const paymentHistory = [
-    { date: 'Feb 01, 2026', amount: 1782, status: 'Completed', method: 'wallet' },
-    { date: 'Jan 05, 2026', amount: 2205, status: 'Completed', method: 'cash' },
-    { date: 'Dec 02, 2025', amount: 1950, status: 'Completed', method: 'Credit Card' },
+    { date: 'Feb 01, 2026', amount: 1782, status: 'Completed' },
+    { date: 'Jan 05, 2026', amount: 2205, status: 'Completed' },
+    { date: 'Dec 02, 2025', amount: 1950, status: 'Completed' },
   ];
 
+  // 📸 PICK RECEIPT IMAGE
+  const pickReceipt = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permission.granted) {
+      Alert.alert('Permission required', 'Allow access to gallery');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      setReceipt(result.assets[0].uri);
+      setSubmitted(false);
+    }
+  };
+
+  // 📩 SUBMIT RECEIPT
+  const submitReceipt = () => {
+    if (!receipt) {
+      Alert.alert('No Receipt', 'Please upload a receipt first.');
+      return;
+    }
+
+    // 👉 Replace this with API call later
+    setSubmitted(true);
+
+    Alert.alert('Submitted', 'Receipt sent to admin for verification.');
+  };
+
+  const handleDownloadQR = () => {
+    Alert.alert('Download', 'QR Code downloaded successfully!');
+  };
+
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Current Bill Summary */}
-      <View style={[styles.billSummary, { backgroundColor: colors.darkBlue }]}>
-        <View>
-          <Text style={[styles.billLabel, { color: colors.white }]}>
-            Amount Due
-          </Text>
-          <Text style={[styles.billAmount, { color: colors.accent }]}>
-            ₱2450
-          </Text>
-        </View>
-        <View>
-          <Text style={[styles.dueLabel, { color: colors.white }]}>
-            Due Date
-          </Text>
-          <Text style={[styles.dueDate, { color: colors.accent }]}>
-            Mar 15, 2026
-          </Text>
-        </View>
+    <ScrollView style={styles.container}>
+
+      {/* 🧾 BILL SUMMARY */}
+      <View style={[styles.card, { backgroundColor: colors.darkBlue }]}>
+        <Text style={[styles.title, { color: colors.white }]}>
+          Current Bill
+        </Text>
+
+        <Text style={[styles.amount, { color: colors.accent }]}>
+          ₱{bill.amount}
+        </Text>
+
+        <Text style={[styles.text, { color: colors.white }]}>
+          Due Date: {bill.dueDate}
+        </Text>
+
+        <Text style={[
+          styles.status,
+          { color: bill.status === 'Paid' ? 'green' : 'red' }
+        ]}>
+          Status: {bill.status}
+        </Text>
       </View>
 
-      {/* Payment Methods */}
-      <View style={styles.methodsSection}>
-        <Text style={[styles.sectionTitle, { color: colors.white }]}>
-          Select Payment Method
+      {/* 📱 QR CODE */}
+      <View style={[styles.card, { backgroundColor: colors.primary }]}>
+        <Text style={[styles.title, { color: colors.darkBg }]}>
+          Pay via QR Code
         </Text>
-        <View style={styles.methodsGrid}>
-          {paymentMethods.map((method) => (
-            <TouchableOpacity
-              key={method.id}
-              style={[
-                styles.methodCard,
-                {
-                  backgroundColor:
-                    selectedPayment === method.id ? colors.accent : colors.primary,
-                  opacity: selectedPayment === method.id ? 1 : 0.7,
-                },
-              ]}
-              onPress={() => setSelectedPayment(method.id)}
-            >
-              <Text style={styles.methodIcon}>{method.icon}</Text>
-              <Text
-                style={[
-                  styles.methodName,
-                  {
-                    color:
-                      selectedPayment === method.id ? colors.darkBg : colors.darkBg,
-                    fontWeight: selectedPayment === method.id ? 'bold' : '600',
-                  },
-                ]}
-              >
-                {method.name}
-              </Text>
-              <Text
-                style={[
-                  styles.methodDescription,
-                  {
-                    color: colors.darkBg,
-                    opacity: 0.6,
-                  },
-                ]}
-              >
-                {method.description}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+
+        <Image
+          source={{
+            uri: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=PAYMENT-ACC-2024-987654',
+          }}
+          style={styles.qr}
+        />
+
+        <TouchableOpacity
+          style={[styles.button, { backgroundColor: colors.accent }]}
+          onPress={handleDownloadQR}
+        >
+          <Text style={{ color: colors.darkBg, fontWeight: 'bold' }}>
+            Download QR Code
+          </Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Payment Instructions */}
-      <View style={[styles.instructionsCard, { backgroundColor: colors.primary, opacity: 0.95 }]}>
-        <Text style={[styles.instructionTitle, { color: colors.darkBg }]}>
-          ℹ️ Payment Instructions for {paymentMethods.find(m => m.id === selectedPayment)?.name}
+      {/* 📋 INSTRUCTIONS */}
+      <View style={[styles.card, { backgroundColor: colors.primary }]}>
+        <Text style={[styles.title, { color: colors.darkBg }]}>
+          Payment Instructions
         </Text>
-        {selectedPayment === 'online' && (
-          <>
-            <Text style={[styles.instructionStep, { color: colors.darkBg }]}>
-              1. Log in to your bank's portal
-            </Text>
-            <Text style={[styles.instructionStep, { color: colors.darkBg }]}>
-              2. Go to Bill Payments &gt; Utilities
-            </Text>
-            <Text style={[styles.instructionStep, { color: colors.darkBg }]}>
-              3. Enter your Account Number: ACC-2024-987654
-            </Text>
-            <Text style={[styles.instructionStep, { color: colors.darkBg }]}>
-              4. Enter amount: ₱2450
-            </Text>
-            <Text style={[styles.instructionStep, { color: colors.darkBg }]}>
-              5. Confirm and complete the transaction
-            </Text>
-          </>
+
+        <Text style={styles.step}>1. Open GCash / Maya</Text>
+        <Text style={styles.step}>2. Tap "Scan QR"</Text>
+        <Text style={styles.step}>3. Scan QR above</Text>
+        <Text style={styles.step}>4. Pay ₱{bill.amount}</Text>
+        <Text style={styles.step}>5. Screenshot receipt</Text>
+      </View>
+
+      {/* 📤 RECEIPT UPLOAD */}
+      <View style={[styles.card, { backgroundColor: colors.primary }]}>
+        <Text style={[styles.title, { color: colors.darkBg }]}>
+          Upload Payment Receipt
+        </Text>
+
+        <TouchableOpacity
+          style={[styles.uploadButton, { backgroundColor: colors.accent }]}
+          onPress={pickReceipt}
+        >
+          <Text style={{ color: colors.darkBg, fontWeight: 'bold' }}>
+            Select Receipt Image
+          </Text>
+        </TouchableOpacity>
+
+        {/* PREVIEW */}
+        {receipt && (
+          <Image source={{ uri: receipt }} style={styles.receiptPreview} />
         )}
-        {selectedPayment === 'upi' && (
-          <>
-            <Text style={[styles.instructionStep, { color: colors.darkBg }]}>
-              1. Open your UPI app (GPay, PhonePe, Paytm)
-            </Text>
-            <Text style={[styles.instructionStep, { color: colors.darkBg }]}>
-              2. Select "Pay Bills" or "Electricity"
-            </Text>
-            <Text style={[styles.instructionStep, { color: colors.darkBg }]}>
-              3. Enter account number: ACC-2024-987654
-            </Text>
-            <Text style={[styles.instructionStep, { color: colors.darkBg }]}>
-              4. Verify details and enter ₹2450
-            </Text>
-            <Text style={[styles.instructionStep, { color: colors.darkBg }]}>
-              5. Complete UPI authentication
-            </Text>
-          </>
-        )}
-        {selectedPayment === 'card' && (
-          <>
-            <Text style={[styles.instructionStep, { color: colors.darkBg }]}>
-              1. Enter card details (number, expiry, CVV)
-            </Text>
-            <Text style={[styles.instructionStep, { color: colors.darkBg }]}>
-              2. Enter cardholder name
-            </Text>
-            <Text style={[styles.instructionStep, { color: colors.darkBg }]}>
-              3. Enter billing address
-            </Text>
-            <Text style={[styles.instructionStep, { color: colors.darkBg }]}>
-              4. Review amount: ₹2450
-            </Text>
-            <Text style={[styles.instructionStep, { color: colors.darkBg }]}>
-              5. Complete OTP verification
-            </Text>
-          </>
-        )}
-        {selectedPayment === 'cheque' && (
-          <>
-            <Text style={[styles.instructionStep, { color: colors.darkBg }]}>
-              1. Draw cheque in favor of "Power Distribution Ltd"
-            </Text>
-            <Text style={[styles.instructionStep, { color: colors.darkBg }]}>
-              2. Write account number on reverse side
-            </Text>
-            <Text style={[styles.instructionStep, { color: colors.darkBg }]}>
-              3. Make cheque for ₱2450
-            </Text>
-            <Text style={[styles.instructionStep, { color: colors.darkBg }]}>
-              4. Post to: Power Co, 123 Main St, City
-            </Text>
-            <Text style={[styles.instructionStep, { color: colors.darkBg }]}>
-              5. Allow 5-7 days for clearance
-            </Text>
-          </>
-        )}
-        {selectedPayment === 'wallet' && (
-          <>
-            <Text style={[styles.instructionStep, { color: colors.darkBg }]}>
-              1. Open Amazon Pay or Apple Pay
-            </Text>
-            <Text style={[styles.instructionStep, { color: colors.darkBg }]}>
-              2. Search for Electricity Bill Payment
-            </Text>
-            <Text style={[styles.instructionStep, { color: colors.darkBg }]}>
-              3. Enter your account number
-            </Text>
-            <Text style={[styles.instructionStep, { color: colors.darkBg }]}>
-              4. Confirm amount: ₹2450
-            </Text>
-            <Text style={[styles.instructionStep, { color: colors.darkBg }]}>
-              5. Authorize payment from your wallet
-            </Text>
-          </>
-        )}
-        {selectedPayment === 'cash' && (
-          <>
-            <Text style={[styles.instructionStep, { color: colors.darkBg }]}>
-              1. Visit nearest collection center
-            </Text>
-            <Text style={[styles.instructionStep, { color: colors.darkBg }]}>
-              2. Bring your account number or bill copy
-            </Text>
-            <Text style={[styles.instructionStep, { color: colors.darkBg }]}>
-              3. Inform the amount to be paid: ₹2450
-            </Text>
-            <Text style={[styles.instructionStep, { color: colors.darkBg }]}>
-              4. Make cash payment
-            </Text>
-            <Text style={[styles.instructionStep, { color: colors.darkBg }]}>
-              5. Collect receipt as proof
-            </Text>
-          </>
+
+        {/* SUBMIT BUTTON */}
+        <TouchableOpacity
+          style={[styles.submitButton, { backgroundColor: colors.darkBlue }]}
+          onPress={submitReceipt}
+        >
+          <Text style={{ color: colors.white, fontWeight: 'bold' }}>
+            Submit Receipt
+          </Text>
+        </TouchableOpacity>
+
+        {/* STATUS */}
+        {submitted && (
+          <Text style={{ color: 'green', marginTop: 8 }}>
+            ✅ Submitted. Waiting for admin approval.
+          </Text>
         )}
       </View>
 
-      {/* Payment History */}
-      <View style={[styles.historyCard, { backgroundColor: colors.primary, opacity: 0.95 }]}>
-        <Text style={[styles.historyTitle, { color: colors.darkBg }]}>
-          Payment History
+      {/* 🧾 HISTORY */}
+      <View style={[styles.card, { backgroundColor: colors.primary }]}>
+        <Text style={[styles.title, { color: colors.darkBg }]}>
+          Recent Payments
         </Text>
-        {paymentHistory.map((payment, index) => (
-          <View
-            key={index}
-            style={[
-              styles.historyItem,
-              {
-                borderBottomColor: colors.accent,
-                borderBottomWidth: index < paymentHistory.length - 1 ? 1 : 0,
-              },
-            ]}
-          >
+
+        {paymentHistory.map((item, index) => (
+          <View key={index} style={styles.historyItem}>
             <View>
-              <Text style={[styles.historyDate, { color: colors.darkBg }]}>
-                {payment.date}
-              </Text>
-              <Text style={[styles.historyMethod, { color: colors.darkBg, opacity: 0.7 }]}>
-                {payment.method}
-              </Text>
+              <Text style={styles.historyDate}>{item.date}</Text>
+              <Text style={styles.historyStatus}>{item.status}</Text>
             </View>
-            <View style={styles.historyRight}>
-              <Text style={[styles.historyAmount, { color: colors.accent, fontWeight: 'bold' }]}>
-                ₱{payment.amount}
-              </Text>
-              <Text
-                style={[
-                  styles.historyStatus,
-                  { color: colors.darkBg, backgroundColor: colors.accent, opacity: 0.8 },
-                ]}
-              >
-                {payment.status}
-              </Text>
-            </View>
+
+            <Text style={styles.historyAmount}>
+              ₱{item.amount}
+            </Text>
           </View>
         ))}
       </View>
 
-      {/* Pay Button */}
-      <TouchableOpacity
-        style={[styles.payButton, { backgroundColor: colors.accent }]}
-      >
-        <Text style={[styles.payButtonText, { color: colors.darkBg }]}>
-          Proceed to Pay ₱2450
-        </Text>
-      </TouchableOpacity>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingBottom: 30,
-  },
-  billSummary: {
+  container: { flex: 1, padding: 16 },
+
+  card: {
     borderRadius: 12,
-    padding: 24,
-    marginBottom: 24,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    padding: 16,
+    marginBottom: 16,
     elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
   },
-  billLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    opacity: 0.8,
-    marginBottom: 4,
+
+  title: { fontSize: 16, fontWeight: 'bold', marginBottom: 10 },
+
+  amount: { fontSize: 32, fontWeight: 'bold', marginBottom: 10 },
+
+  text: { fontSize: 14 },
+
+  status: { fontWeight: 'bold', marginTop: 6 },
+
+  qr: {
+    width: 200,
+    height: 200,
+    alignSelf: 'center',
+    marginVertical: 12,
   },
-  billAmount: {
-    fontSize: 28,
-    fontWeight: 'bold',
-  },
-  dueLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    opacity: 0.8,
-    marginBottom: 4,
-  },
-  dueDate: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  methodsSection: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 12,
-  },
-  methodsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  methodCard: {
-    width: '48%',
-    borderRadius: 12,
+
+  button: {
     padding: 12,
-    marginBottom: 12,
+    borderRadius: 8,
     alignItems: 'center',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
   },
-  methodIcon: {
-    fontSize: 32,
-    marginBottom: 8,
+
+  step: { fontSize: 13, marginBottom: 6, color: '#000' },
+
+  uploadButton: {
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 10,
   },
-  methodName: {
-    fontSize: 12,
-    marginBottom: 4,
-    textAlign: 'center',
+
+  submitButton: {
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 10,
   },
-  methodDescription: {
-    fontSize: 10,
-    textAlign: 'center',
+
+  receiptPreview: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    marginTop: 10,
   },
-  instructionsCard: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-  },
-  instructionTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginBottom: 12,
-  },
-  instructionStep: {
-    fontSize: 12,
-    lineHeight: 18,
-    marginBottom: 6,
-  },
-  historyCard: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-  },
-  historyTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginBottom: 12,
-  },
+
   historyItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
+    marginBottom: 10,
   },
-  historyDate: {
-    fontSize: 13,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  historyMethod: {
-    fontSize: 11,
-  },
-  historyRight: {
-    alignItems: 'flex-end',
-  },
-  historyAmount: {
-    fontSize: 14,
-    marginBottom: 4,
-  },
-  historyStatus: {
-    fontSize: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  payButton: {
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    marginHorizontal: 16,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  payButtonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+
+  historyDate: { fontSize: 13, fontWeight: '600' },
+
+  historyStatus: { fontSize: 11, color: 'green' },
+
+  historyAmount: { fontSize: 14, fontWeight: 'bold' },
 });
