@@ -1,44 +1,85 @@
-import React, { useState, useRef } from 'react';
-import { StyleSheet, View, ScrollView, TouchableOpacity, Text, Modal, TextInput, Button, Animated, Dimensions } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  StyleSheet,
+  View,
+  ScrollView,
+  TouchableOpacity,
+  Text,
+  Modal,
+  TextInput,
+  Animated,
+  Dimensions,
+  Alert,
+} from 'react-native';
+
 import Dashboard from './components/Dashboard';
 import UsageSection from './components/UsageSection';
 import PaymentSection from './components/PaymentSection';
 import CompanyInfo from './components/CompanyInfo';
 
+const API_URL = "http://10.0.67.191:5000"; // ⚠️ CHANGE THIS
+
 const COLORS = {
-  primary: '#ADD8E6',      // Light Blue
-  accent: '#FFD700',       // Yellow
-  darkBlue: '#87CEEB',     // Sky Blue
+  primary: '#ADD8E6',
+  accent: '#FFD700',
+  darkBlue: '#87CEEB',
   white: '#FFFFFF',
-  darkBg: '#0B1E2E',       // Dark background
+  darkBg: '#0B1E2E',
 };
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [showLoginModal, setShowLoginModal] = useState(true); // Show modal initially
+  const [activeTab, setActiveTab] = useState('company');
+  const [showLoginModal, setShowLoginModal] = useState(true);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const tabIndicatorAnim = useRef(new Animated.Value(0)).current; // For tab animation
 
-  const tabs = ['dashboard', 'usage', 'payment', 'company'];
+  const tabIndicatorAnim = useRef(new Animated.Value(0)).current;
+
+  const tabs = ['company', 'payment', 'usage', 'dashboard'];
   const screenWidth = Dimensions.get('window').width;
-  const tabWidth = screenWidth / 4;
+  const tabWidth = screenWidth / tabs.length;
 
-  const handleLogin = () => {
-    // Simple login logic, in real app use proper auth
-    if (username && password) {
-      setIsLoggedIn(true);
-      setShowLoginModal(false);
+  // ======================
+  // 🔐 LOGIN FUNCTION
+  // ======================
+  const handleLogin = async () => {
+    try {
+      const res = await fetch(`${API_URL}/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username,
+          password,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setIsLoggedIn(true);
+        setShowLoginModal(false);
+        Alert.alert("Success", "Login successful!");
+      } else {
+        Alert.alert("Error", data.message || "Login failed");
+      }
+
+    } catch (err) {
+      Alert.alert("Error", "Server not reachable");
+      console.log(err);
     }
   };
 
   const handleTabPress = (tab) => {
     const index = tabs.indexOf(tab);
+
     Animated.spring(tabIndicatorAnim, {
       toValue: index,
       useNativeDriver: false,
     }).start();
+
     setActiveTab(tab);
   };
 
@@ -59,199 +100,166 @@ export default function App() {
 
   return (
     <View style={styles.container}>
-      <Modal
-        visible={showLoginModal && !isLoggedIn}
-        animationType="slide"
-        transparent={true}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Login</Text>
+
+      {/* LOGIN MODAL */}
+      <Modal visible={showLoginModal && !isLoggedIn} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+
+            <Text style={styles.modalTitle}>⚡ Electripay</Text>
+
             <TextInput
-              style={styles.input}
+              style={styles.inputModern}
               placeholder="Username"
               value={username}
               onChangeText={setUsername}
+              placeholderTextColor="#aaa"
             />
+
             <TextInput
-              style={styles.input}
+              style={styles.inputModern}
               placeholder="Password"
               secureTextEntry
               value={password}
               onChangeText={setPassword}
+              placeholderTextColor="#aaa"
             />
-            <Button title="Login" onPress={handleLogin} />
+
+            <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
+              <Text style={styles.loginButtonText}>Login</Text>
+            </TouchableOpacity>
+
           </View>
         </View>
       </Modal>
+
+      {/* HEADER */}
       <ScrollView style={styles.scrollView}>
-        {/* Header */}
-        <View style={[styles.header, { backgroundColor: COLORS.darkBlue }]}>
-          <Text style={[styles.headerTitle, { color: COLORS.black }]}>
-           ELECTRIPAY
-          </Text>
-          <Text style={[styles.headerSubtitle, { color: COLORS.accent }]}>
-            Client Dashboard
-          </Text>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>ELECTRIPAY</Text>
         </View>
 
-        {/* Content */}
         <View style={styles.content}>
           {renderContent()}
         </View>
       </ScrollView>
 
-      {/* Navigation Tabs */}
-      <View style={[styles.tabBar, { backgroundColor: COLORS.darkBg }]}>
+      {/* TABS */}
+      <View style={styles.tabBar}>
         <Animated.View
           style={[
             styles.tabIndicator,
             {
               transform: [{
                 translateX: tabIndicatorAnim.interpolate({
-                  inputRange: [0, 1, 2, 3],
-                  outputRange: [0, tabWidth, 2 * tabWidth, 3 * tabWidth],
-                }),
-              }],
-            },
+                  inputRange: tabs.map((_, i) => i),
+                  outputRange: tabs.map((_, i) => i * tabWidth),
+                })
+              }]
+            }
           ]}
         />
-        <TabButton
-          label="Dashboard"
-          isActive={activeTab === 'dashboard'}
-          onPress={() => handleTabPress('dashboard')}
-          colors={COLORS}
-        />
-        <TabButton
-          label="Usage"
-          isActive={activeTab === 'usage'}
-          onPress={() => handleTabPress('usage')}
-          colors={COLORS}
-        />
-        <TabButton
-          label="Payment"
-          isActive={activeTab === 'payment'}
-          onPress={() => handleTabPress('payment')}
-          colors={COLORS}
-        />
-        <TabButton
-          label="Company"
-          isActive={activeTab === 'company'}
-          onPress={() => handleTabPress('company')}
-          colors={COLORS}
-        />
+
+        {tabs.map((tab) => (
+          <TouchableOpacity
+            key={tab}
+            style={styles.tabButton}
+            onPress={() => handleTabPress(tab)}
+          >
+            <Text style={styles.tabText}>{tab.toUpperCase()}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
     </View>
   );
 }
 
-function TabButton({ label, isActive, onPress, colors }) {
-  return (
-    <TouchableOpacity
-      style={styles.tabButton}
-      onPress={onPress}
-    >
-      <Text
-        style={[
-          styles.tabButtonText,
-          {
-            color: isActive ? colors.accent : colors.white,
-            fontWeight: isActive ? 'bold' : '600',
-          },
-        ]}
-      >
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
-}
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0B1E2E',
-  },
-  scrollView: {
-    flex: 1,
-  },
+  container: { flex: 1, backgroundColor: '#0B1E2E' },
+  scrollView: { flex: 1 },
+
   header: {
-    paddingTop: 50,
-    paddingBottom: 30,
-    paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 20,
     alignItems: 'center',
   },
+
   headerTitle: {
-    textAlign: 'center',
-    fontSize: 45,
-    fontWeight: '900',
-    marginBottom: 8,
-    boxShadowColor: '#fdb334',
-    boxShadowOffset: { width: 4, height: 4 },
-    boxShadowOpacity: 1,
-    boxShadowRadius: 10,
+    fontSize: 30,
+    color: '#FFD700',
+    fontWeight: 'bold',
   },
-  headerSubtitle: {
-    fontSize: 14,
-    fontWeight: '500',
+
+  content: {
+    padding: 16,
   },
-  _content: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 20,
-    minHeight: 500,
-  },
-  get content() {
-    return this._content;
-  },
-  set content(value) {
-    this._content = value;
-  },
+
   tabBar: {
-    marginBottom: 30,
     flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: '#ADD8E6',
-    paddingBottom: 20,
+    backgroundColor: '#111',
+    height: 100,
+    bottom: 0,
   },
+
   tabButton: {
     flex: 1,
-    paddingVertical: 16,
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
   },
-  tabButtonText: {
+
+  tabText: {
+    color: '#fff',
     fontSize: 12,
+    marginBottom: 45,
   },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  modalContent: {
-    backgroundColor: COLORS.white,
-    padding: 20,
-    borderRadius: 10,
-    width: '80%',
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: COLORS.primary,
-    padding: 10,
-    marginBottom: 10,
-    borderRadius: 5,
-  },
+
   tabIndicator: {
     position: 'absolute',
-    bottom: 20,
+    bottom: 4,
     height: 3,
-    backgroundColor: COLORS.accent,
-    width: '25%', // Since 4 tabs
+    width: '25%',
+    backgroundColor: '#FFD700',
+  },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  modalCard: {
+    width: '85%',
+    backgroundColor: '#1A2F3F',
+    padding: 20,
+    borderRadius: 15,
+  },
+
+  modalTitle: {
+    fontSize: 24,
+    color: '#FFD700',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+
+  inputModern: {
+    backgroundColor: '#2A3F50',
+    marginBottom: 10,
+    padding: 10,
+    borderRadius: 8,
+    color: '#fff',
+  },
+
+  loginButton: {
+    backgroundColor: '#FFD700',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 10,
+  },
+
+  loginButtonText: {
+    textAlign: 'center',
+    fontWeight: 'bold',
+    color: '#000',
   },
 });

@@ -1,11 +1,23 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, Image, TouchableOpacity, TextInput } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  Text,
+  Image,
+  TouchableOpacity,
+  TextInput,
+  Alert,
+} from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 
 export default function Dashboard({ colors }) {
   const [isEditing, setIsEditing] = useState(false);
+
   const [profile, setProfile] = useState({
     name: 'John Doe',
     email: 'john.doe@example.com',
+    address: 'Imus, Cavite',
+    contact: '09123456789',
     avatar: 'https://www.pngmart.com/files/23/Profile-PNG-Photo.png',
   });
 
@@ -14,78 +26,169 @@ export default function Dashboard({ colors }) {
   const accountNumber = 'ACC-2024-987654';
   const status = 'Active';
 
+  // 📸 Pick image from gallery
+  const pickImage = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permission.granted) {
+      Alert.alert('Permission required', 'Allow access to gallery');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      setProfile({
+        ...profile,
+        avatar: result.assets[0].uri,
+      });
+    }
+  };
+
   const handleSave = () => {
     setIsEditing(false);
-    // Here you could save to backend or local storage
+    Alert.alert('Saved', 'Profile updated successfully!');
   };
 
   const handleCancel = () => {
     setIsEditing(false);
-    // Reset to original values if needed
   };
 
   return (
     <View style={styles.container}>
-      {/* Profile Card */}
+      {/* PROFILE CARD */}
       <View style={[styles.profileCard, { backgroundColor: colors.primary }]}>
         <View style={styles.profileHeader}>
-          <Text style={[styles.profileTitle, { color: colors.darkBg }]}>Profile</Text>
+          <Text style={[styles.profileTitle, { color: colors.darkBg }]}>
+            Profile
+          </Text>
+
           {!isEditing ? (
             <TouchableOpacity onPress={() => setIsEditing(true)}>
-              <Text style={[styles.editButton, { color: colors.accent }]}>Edit</Text>
+              <Text style={[styles.editButton, { color: colors.accent }]}>
+                Edit
+              </Text>
             </TouchableOpacity>
           ) : (
             <View style={styles.editButtons}>
               <TouchableOpacity onPress={handleCancel}>
-                <Text style={[styles.cancelButton, { color: colors.primary }]}>Cancel</Text>
+                <Text style={[styles.cancelButton, { color: colors.darkBg }]}>
+                  Cancel
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={handleSave}>
-                <Text style={[styles.saveButton, { color: colors.accent }]}>Save</Text>
+                <Text style={[styles.saveButton, { color: colors.accent }]}>
+                  Save
+                </Text>
               </TouchableOpacity>
             </View>
           )}
         </View>
+
+        {/* AVATAR */}
         <View style={styles.avatarContainer}>
-          <Image source={{ uri: profile.avatar }} style={styles.avatar} />
+          <TouchableOpacity onPress={isEditing ? pickImage : null}>
+            <Image source={{ uri: profile.avatar }} style={styles.avatar} />
+          </TouchableOpacity>
+
           {isEditing && (
-            <TextInput
-              style={[styles.input, { borderColor: colors.primary, marginTop: 8 }]}
-              value={profile.avatar}
-              onChangeText={(text) => setProfile({ ...profile, avatar: text })}
-              placeholder="Avatar URL"
-            />
+            <Text style={{ fontSize: 12, color: colors.darkBg, marginTop: 6 }}>
+              Tap image to change
+            </Text>
           )}
         </View>
+
+        {/* PROFILE FIELDS */}
         <View style={styles.profileContent}>
+          {/* NAME */}
           <View style={styles.profileField}>
-            <Text style={[styles.fieldLabel, { color: colors.darkBg }]}>Name:</Text>
+            <Text style={[styles.fieldLabel, { color: colors.darkBg }]}>
+              Name:
+            </Text>
             {isEditing ? (
               <TextInput
                 style={[styles.input, { borderColor: colors.primary }]}
                 value={profile.name}
-                onChangeText={(text) => setProfile({ ...profile, name: text })}
+                onChangeText={(text) =>
+                  setProfile({ ...profile, name: text })
+                }
               />
             ) : (
-              <Text style={[styles.fieldValue, { color: colors.darkBg }]}>{profile.name}</Text>
+              <Text style={[styles.fieldValue, { color: colors.darkBg }]}>
+                {profile.name}
+              </Text>
             )}
           </View>
+
+          {/* EMAIL */}
           <View style={styles.profileField}>
-            <Text style={[styles.fieldLabel, { color: colors.darkBg }]}>Email:</Text>
+            <Text style={[styles.fieldLabel, { color: colors.darkBg }]}>
+              Email:
+            </Text>
             {isEditing ? (
               <TextInput
                 style={[styles.input, { borderColor: colors.primary }]}
                 value={profile.email}
-                onChangeText={(text) => setProfile({ ...profile, email: text })}
-                keyboardType="email-address"
+                onChangeText={(text) =>
+                  setProfile({ ...profile, email: text })
+                }
               />
             ) : (
-              <Text style={[styles.fieldValue, { color: colors.darkBg }]}>{profile.email}</Text>
+              <Text style={[styles.fieldValue, { color: colors.darkBg }]}>
+                {profile.email}
+              </Text>
+            )}
+          </View>
+
+          {/* ADDRESS */}
+          <View style={styles.profileField}>
+            <Text style={[styles.fieldLabel, { color: colors.darkBg }]}>
+              Address:
+            </Text>
+            {isEditing ? (
+              <TextInput
+                style={[styles.input, { borderColor: colors.primary }]}
+                value={profile.address}
+                onChangeText={(text) =>
+                  setProfile({ ...profile, address: text })
+                }
+              />
+            ) : (
+              <Text style={[styles.fieldValue, { color: colors.darkBg }]}>
+                {profile.address}
+              </Text>
+            )}
+          </View>
+
+          {/* CONTACT */}
+          <View style={styles.profileField}>
+            <Text style={[styles.fieldLabel, { color: colors.darkBg }]}>
+              Contact:
+            </Text>
+            {isEditing ? (
+              <TextInput
+                style={[styles.input, { borderColor: colors.primary }]}
+                value={profile.contact}
+                onChangeText={(text) =>
+                  setProfile({ ...profile, contact: text })
+                }
+                keyboardType="phone-pad"
+              />
+            ) : (
+              <Text style={[styles.fieldValue, { color: colors.darkBg }]}>
+                {profile.contact}
+              </Text>
             )}
           </View>
         </View>
       </View>
 
-      {/* Status Card */}
+      {/* STATUS */}
       <View style={[styles.statusCard, { backgroundColor: colors.primary }]}>
         <Text style={[styles.statusLabel, { color: colors.darkBg }]}>
           Account Status
@@ -95,230 +198,92 @@ export default function Dashboard({ colors }) {
         </Text>
       </View>
 
-      {/* Bill Amount Card */}
+      {/* BILL */}
       <View style={[styles.billCard, { backgroundColor: colors.darkBlue }]}>
-        <Text style={[styles.label, { color: colors.white }]}>Current Bill</Text>
+        <Text style={[styles.label, { color: colors.white }]}>
+          Current Bill
+        </Text>
         <Text style={[styles.amount, { color: colors.accent }]}>
           ₱{billAmount}
         </Text>
-        <Text style={[styles.dueDateText, { color: colors.white, opacity: 0.8 }]}>
+        <Text style={[styles.dueDateText, { color: colors.white }]}>
           Due by: {dueDate}
         </Text>
       </View>
 
-      {/* Account Details */}
-      <View style={[styles.detailsCard, { backgroundColor: colors.primary, opacity: 0.9 }]}>
-        <View style={styles.detailRow}>
-          <Text style={[styles.detailLabel, { color: colors.darkBg }]}>
-            Account Number:
-          </Text>
-          <Text style={[styles.detailValue, { color: colors.darkBg, fontWeight: 'bold' }]}>
-            {accountNumber}
-          </Text>
-        </View>
-        <View style={[styles.divider, { backgroundColor: colors.white, opacity: 0.3 }]} />
-        <View style={styles.detailRow}>
-          <Text style={[styles.detailLabel, { color: colors.darkBg }]}>
-            Connection Type:
-          </Text>
-          <Text style={[styles.detailValue, { color: colors.darkBg, fontWeight: 'bold' }]}>
-            Domestic
-          </Text>
-        </View>
-        <View style={[styles.divider, { backgroundColor: colors.white, opacity: 0.3 }]} />
-        <View style={styles.detailRow}>
-          <Text style={[styles.detailLabel, { color: colors.darkBg }]}>
-            Billing Period:
-          </Text>
-          <Text style={[styles.detailValue, { color: colors.darkBg, fontWeight: 'bold' }]}>
-            Feb 1 - Mar 1, 2026
-          </Text>
-        </View>
-      </View>
-
-      {/* Quick Stats */}
-      <View style={styles.statsContainer}>
-        <View style={[styles.statBox, { backgroundColor: colors.accent, opacity: 0.9 }]}>
-          <Text style={[styles.statLabel, { color: colors.darkBg }]}>This Month</Text>
-          <Text style={[styles.statValue, { color: colors.darkBg }]}>245 kWh</Text>
-        </View>
-        <View style={[styles.statBox, { backgroundColor: colors.primary, opacity: 0.9 }]}>
-          <Text style={[styles.statLabel, { color: colors.darkBg }]}>Last Month</Text>
-          <Text style={[styles.statValue, { color: colors.darkBg }]}>198 kWh</Text>
-        </View>
+      {/* DETAILS */}
+      <View style={[styles.detailsCard, { backgroundColor: colors.primary }]}>
+        <Text style={{ color: colors.darkBg }}>
+          Account #: {accountNumber}
+        </Text>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingBottom: 20,
-  },
+  container: { flex: 1, paddingBottom: 20 },
+
   profileCard: {
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
   },
+
   profileHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  profileTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  editButton: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  editButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  cancelButton: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  saveButton: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  profileContent: {
-    gap: 12,
-  },
-  profileField: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  fieldLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    width: 60,
-  },
-  fieldValue: {
-    fontSize: 14,
-    flex: 1,
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: 4,
-    padding: 8,
-    fontSize: 14,
-    flex: 1,
-  },
-  statusCard: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    alignItems: 'center',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  statusLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    opacity: 0.7,
-    marginBottom: 4,
-  },
-  statusValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  billCard: {
-    borderRadius: 12,
-    padding: 24,
-    marginBottom: 16,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    opacity: 0.9,
-    marginBottom: 8,
-  },
-  amount: {
-    fontSize: 36,
-    fontWeight: 'bold',
     marginBottom: 12,
   },
-  dueDateText: {
-    fontSize: 12,
-  },
-  detailsCard: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-  },
-  detailLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  detailValue: {
-    fontSize: 12,
-  },
-  divider: {
-    height: 1,
-    marginVertical: 4,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  statBox: {
+
+  profileTitle: { fontSize: 18, fontWeight: 'bold' },
+
+  editButtons: { flexDirection: 'row', gap: 10 },
+
+  avatarContainer: { alignItems: 'center', marginBottom: 12 },
+
+  avatar: { width: 100, height: 100, borderRadius: 50 },
+
+  profileContent: { gap: 10 },
+
+  profileField: { flexDirection: 'row', alignItems: 'center' },
+
+  fieldLabel: { width: 70, fontWeight: '600' },
+
+  fieldValue: { flex: 1 },
+
+  input: {
+    borderWidth: 1,
+    borderRadius: 5,
+    padding: 6,
     flex: 1,
-    borderRadius: 12,
+  },
+
+  statusCard: {
     padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
     alignItems: 'center',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
   },
-  statLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    marginBottom: 8,
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  avatarContainer: {
-    alignItems: 'center',
+
+  statusLabel: { fontSize: 12 },
+
+  statusValue: { fontSize: 20, fontWeight: 'bold' },
+
+  billCard: {
+    padding: 20,
+    borderRadius: 12,
     marginBottom: 16,
   },
-  avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+
+  label: { fontSize: 14 },
+
+  amount: { fontSize: 32, fontWeight: 'bold' },
+
+  dueDateText: { fontSize: 12 },
+
+  detailsCard: {
+    padding: 16,
+    borderRadius: 12,
   },
 });
