@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -7,27 +7,55 @@ import {
   TouchableOpacity,
   Image,
   Alert,
+  Linking,
+  Animated,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import axios from 'axios';
 
-export default function PaymentSection({ colors }) {
+export default function PaymentSection({ colors, apiBaseUrl, user, isActive, onScroll }) {
   const [receipt, setReceipt] = useState(null);
-  const [submitted, setSubmitted] = useState(false);
+  const [paymentData, setPaymentData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [showRecentPayments, setShowRecentPayments] = useState(false);
+  const scrollRef = useRef(null);
 
-  const bill = {
-    amount: 2450,
-    dueDate: 'March 15, 2026',
-    status: 'Unpaid',
-    accountNumber: 'ACC-2024-987654',
+  const fetchPayments = async () => {
+    if (!user?._id) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await axios.get(`${apiBaseUrl}/users/${user._id}/payments`);
+      setPaymentData(response.data);
+    } catch (error) {
+      console.error('Error fetching payment data:', error);
+      Alert.alert('Error', 'Failed to load payment details');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const paymentHistory = [
-    { date: 'Feb 01, 2026', amount: 1782, status: 'Completed' },
-    { date: 'Jan 05, 2026', amount: 2205, status: 'Completed' },
-    { date: 'Dec 02, 2025', amount: 1950, status: 'Completed' },
-  ];
+  useEffect(() => {
+    fetchPayments();
+  }, [apiBaseUrl, user?._id]);
 
-  // 📸 PICK RECEIPT IMAGE
+  useEffect(() => {
+    if (isActive) {
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+    }
+  }, [isActive]);
+
+  const bill = paymentData?.currentBill;
+  const paymentHistory = paymentData?.history || [];
+  const qrCodeUrl = bill
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(
+        bill.qrData
+      )}`
+    : null;
+
   const pickReceipt = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
@@ -37,219 +65,255 @@ export default function PaymentSection({ colors }) {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       quality: 1,
     });
 
     if (!result.canceled) {
       setReceipt(result.assets[0].uri);
-      setSubmitted(false);
     }
   };
 
-  // 📩 SUBMIT RECEIPT
-  const submitReceipt = () => {
+  const submitReceipt = async () => {
+    if (!user?._id) {
+      Alert.alert('Error', 'No user is logged in');
+      return;
+    }
+
     if (!receipt) {
       Alert.alert('No Receipt', 'Please upload a receipt first.');
       return;
     }
 
-    // 👉 Replace this with API call later
-    setSubmitted(true);
-
-    Alert.alert('Submitted', 'Receipt sent to admin for verification.');
+    try {
+      setSubmitting(true);
+      const response = await axios.post(
+        `${apiBaseUrl}/users/${user._id}/payments/receipt`,
+        { receiptUri: receipt }
+      );
+      setPaymentData(response.data.payments);
+      Alert.alert('Submitted', 'Receipt sent to admin for verification.');
+    } catch (error) {
+      console.error('Error submitting receipt:', error);
+      Alert.alert('Error', 'Failed to submit receipt');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleDownloadQR = () => {
-    Alert.alert('Download', 'QR Code downloaded successfully!');
+  const handleRefresh = () => {
+    setLoading(true);
+    fetchPayments();
   };
+
+  const handleDownloadQr = async () => {
+    if (!qrCodeUrl) {
+      return;
+    }
+
+    try {
+      await Linking.openURL(qrCodeUrl);
+      Alert.alert('QR Opened', 'The QR image opened in your browser. You can now save or download it there.');
+    } catch (error) {
+      console.error('Error opening QR code:', error);
+      Alert.alert('Error', 'Failed to open the QR code');
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={{ color: colors.white }}>Loading payment details...</Text>
+      </View>
+    );
+  }
+
+  if (!user?._id || !bill) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={{ color: colors.white }}>Log in to view payment details.</Text>
+      </View>
+    );
+  }
 
   return (
-    <ScrollView style={styles.container}>
-
-      {/* 🧾 BILL SUMMARY */}
+    <Animated.ScrollView
+      ref={scrollRef}
+      style={styles.container}
+      bounces={false}
+      alwaysBounceVertical={false}
+      overScrollMode="never"
+      onScroll={onScroll}
+      scrollEventThrottle={16}
+    >
       <View style={[styles.card, { backgroundColor: colors.darkBlue }]}>
-        <Text style={[styles.title, { color: colors.white }]}>
-          Current Bill
-        </Text>
-
-        <Text style={[styles.amount, { color: colors.accent }]}>
-          ₱{bill.amount}
-        </Text>
-
-        <Text style={[styles.text, { color: colors.white }]}>
-          Due Date: {bill.dueDate}
-        </Text>
-
-        <Text style={[
-          styles.status,
-          { color: bill.status === 'Paid' ? 'green' : 'red' }
-        ]}>
+        <Text style={[styles.title, { color: colors.white }]}>Current Bill</Text>
+        <Text style={[styles.amount, { color: colors.accent }]}>PHP {bill.amount}</Text>
+        <Text style={[styles.text, { color: colors.white }]}>Due Date: {bill.dueDate}</Text>
+        <Text style={[styles.text, { color: colors.white }]}>Account #: {bill.accountNumber}</Text>
+        <Text
+          style={[
+            styles.status,
+            { color: bill.status === 'Completed' || bill.status === 'Paid' ? 'green' : '#D7263D' },
+          ]}
+        >
           Status: {bill.status}
         </Text>
       </View>
 
-      {/* 📱 QR CODE */}
       <View style={[styles.card, { backgroundColor: colors.primary }]}>
-        <Text style={[styles.title, { color: colors.darkBg }]}>
-          Pay via QR Code
-        </Text>
-
+        <Text style={[styles.title, { color: colors.darkBg }]}>Pay via QR Code</Text>
         <Image
           source={{
-            uri: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=PAYMENT-ACC-2024-987654',
+            uri: qrCodeUrl,
           }}
           style={styles.qr}
         />
-
         <TouchableOpacity
           style={[styles.button, { backgroundColor: colors.accent }]}
-          onPress={handleDownloadQR}
+          onPress={handleDownloadQr}
         >
-          <Text style={{ color: colors.darkBg, fontWeight: 'bold' }}>
-            Download QR Code
-          </Text>
+          <Text style={{ color: colors.darkBg, fontWeight: 'bold' }}>Download QR Code</Text>
         </TouchableOpacity>
       </View>
 
-      {/* 📋 INSTRUCTIONS */}
       <View style={[styles.card, { backgroundColor: colors.primary }]}>
-        <Text style={[styles.title, { color: colors.darkBg }]}>
-          Payment Instructions
-        </Text>
-
-        <Text style={styles.step}>1. Open GCash / Maya</Text>
-        <Text style={styles.step}>2. Tap "Scan QR"</Text>
-        <Text style={styles.step}>3. Scan QR above</Text>
-        <Text style={styles.step}>4. Pay ₱{bill.amount}</Text>
-        <Text style={styles.step}>5. Screenshot receipt</Text>
+        <Text style={[styles.title, { color: colors.darkBg }]}>Payment Instructions</Text>
+        <Text style={styles.step}>1. Open GCash, Maya, or your banking app</Text>
+        <Text style={styles.step}>2. Scan the QR code above</Text>
+        <Text style={styles.step}>3. Confirm the amount of PHP {bill.amount}</Text>
+        <Text style={styles.step}>4. Save or screenshot your receipt</Text>
+        <Text style={styles.step}>5. Upload the receipt below for verification</Text>
       </View>
 
-      {/* 📤 RECEIPT UPLOAD */}
       <View style={[styles.card, { backgroundColor: colors.primary }]}>
-        <Text style={[styles.title, { color: colors.darkBg }]}>
-          Upload Payment Receipt
-        </Text>
+        <Text style={[styles.title, { color: colors.darkBg }]}>Upload Payment Receipt</Text>
 
         <TouchableOpacity
           style={[styles.uploadButton, { backgroundColor: colors.accent }]}
           onPress={pickReceipt}
         >
-          <Text style={{ color: colors.darkBg, fontWeight: 'bold' }}>
-            Select Receipt Image
-          </Text>
+          <Text style={{ color: colors.darkBg, fontWeight: 'bold' }}>Select Receipt Image</Text>
         </TouchableOpacity>
 
-        {/* PREVIEW */}
-        {receipt && (
-          <Image source={{ uri: receipt }} style={styles.receiptPreview} />
-        )}
+        {receipt && <Image source={{ uri: receipt }} style={styles.receiptPreview} />}
 
-        {/* SUBMIT BUTTON */}
         <TouchableOpacity
-          style={[styles.submitButton, { backgroundColor: colors.darkBlue }]}
+          style={[styles.submitButton, { backgroundColor: colors.darkBlue, opacity: submitting ? 0.7 : 1 }]}
           onPress={submitReceipt}
+          disabled={submitting}
         >
           <Text style={{ color: colors.white, fontWeight: 'bold' }}>
-            Submit Receipt
+            {submitting ? 'Submitting...' : 'Submit Receipt'}
           </Text>
         </TouchableOpacity>
 
-        {/* STATUS */}
-        {submitted && (
-          <Text style={{ color: 'green', marginTop: 8 }}>
-            ✅ Submitted. Waiting for admin approval.
-          </Text>
-        )}
+        <TouchableOpacity style={styles.linkButton} onPress={handleRefresh}>
+          <Text style={[styles.linkText, { color: colors.darkBg }]}>Refresh payment status</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* 🧾 HISTORY */}
       <View style={[styles.card, { backgroundColor: colors.primary }]}>
-        <Text style={[styles.title, { color: colors.darkBg }]}>
-          Recent Payments
-        </Text>
+        <TouchableOpacity
+          style={styles.collapseHeader}
+          onPress={() => setShowRecentPayments((value) => !value)}
+        >
+          <Text style={[styles.title, { color: colors.darkBg, marginBottom: 0 }]}>
+            Recent Payments
+          </Text>
+          <Text style={[styles.collapseIcon, { color: colors.darkBg }]}>
+            {showRecentPayments ? 'Hide' : 'Show'}
+          </Text>
+        </TouchableOpacity>
 
-        {paymentHistory.map((item, index) => (
-          <View key={index} style={styles.historyItem}>
+        {showRecentPayments && paymentHistory.map((item) => (
+          <View key={item.id} style={styles.historyItem}>
             <View>
               <Text style={styles.historyDate}>{item.date}</Text>
               <Text style={styles.historyStatus}>{item.status}</Text>
+              <Text style={styles.historyMethod}>{item.method}</Text>
             </View>
 
-            <Text style={styles.historyAmount}>
-              ₱{item.amount}
-            </Text>
+            <Text style={styles.historyAmount}>PHP {item.amount}</Text>
           </View>
         ))}
       </View>
-
-    </ScrollView>
+    </Animated.ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16 },
-
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
   card: {
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
     elevation: 3,
   },
-
+  collapseHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  collapseIcon: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
   title: { fontSize: 16, fontWeight: 'bold', marginBottom: 10 },
-
   amount: { fontSize: 32, fontWeight: 'bold', marginBottom: 10 },
-
-  text: { fontSize: 14 },
-
+  text: { fontSize: 14, marginBottom: 4 },
   status: { fontWeight: 'bold', marginTop: 6 },
-
   qr: {
     width: 200,
     height: 200,
     alignSelf: 'center',
     marginVertical: 12,
   },
-
   button: {
     padding: 12,
     borderRadius: 8,
     alignItems: 'center',
   },
-
   step: { fontSize: 13, marginBottom: 6, color: '#000' },
-
   uploadButton: {
     padding: 12,
     borderRadius: 8,
     alignItems: 'center',
     marginBottom: 10,
   },
-
   submitButton: {
     padding: 12,
     borderRadius: 8,
     alignItems: 'center',
     marginTop: 10,
   },
-
+  linkButton: {
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  linkText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
   receiptPreview: {
     width: '100%',
     height: 200,
     borderRadius: 8,
     marginTop: 10,
   },
-
   historyItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 12,
   },
-
   historyDate: { fontSize: 13, fontWeight: '600' },
-
   historyStatus: { fontSize: 11, color: 'green' },
-
+  historyMethod: { fontSize: 11, color: '#333' },
   historyAmount: { fontSize: 14, fontWeight: 'bold' },
 });

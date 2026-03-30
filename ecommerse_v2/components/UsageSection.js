@@ -1,40 +1,76 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity} from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Animated } from 'react-native';
+import axios from 'axios';
 
-export default function UsageSection({ colors }) {
-  const usageData = [
-    { day: 'Mon', usage: 8.5, unit: 'kWh' },
-    { day: 'Tue', usage: 9.2, unit: 'kWh' },
-    { day: 'Wed', usage: 7.8, unit: 'kWh' },
-    { day: 'Thu', usage: 10.1, unit: 'kWh' },
-    { day: 'Fri', usage: 11.5, unit: 'kWh' },
-    { day: 'Sat', usage: 13.2, unit: 'kWh' },
-    { day: 'Sun', usage: 14.8, unit: 'kWh' },
-  ];
+export default function UsageSection({ colors, apiBaseUrl, user, isActive, onScroll }) {
+  const [usageData, setUsageData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [showAllMonths, setShowAllMonths] = useState(false);
+  const scrollRef = useRef(null);
 
-  const MyButton = () => {
-  };
+  useEffect(() => {
+    const fetchUsage = async () => {
+      if (!user?._id) {
+        setLoading(false);
+        return;
+      }
 
-  const monthlyData = [
-    {month: 'December', usage: 195, cost: 1950 },
-    { month: 'November', usage: 210, cost: 2100 },
-    { month: 'January', usage: 245, cost: 2205 },
-    { month: 'February', usage: 198, cost: 1782 },
-    { month: 'March (Current)', usage: 245, cost: 2450 },
-  ];
+      try {
+        const response = await axios.get(`${apiBaseUrl}/users/${user._id}/usage`);
+        setUsageData(response.data);
+      } catch (error) {
+        console.error('Error fetching usage:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const maxUsage = Math.max(...usageData.map(item => item.usage));
+    fetchUsage();
+  }, [apiBaseUrl, user?._id]);
+
+  useEffect(() => {
+    if (isActive) {
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+    }
+  }, [isActive]);
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={{ color: colors.white }}>Loading usage data...</Text>
+      </View>
+    );
+  }
+
+  if (!user?._id || !usageData) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={{ color: colors.white }}>Log in to view usage data.</Text>
+      </View>
+    );
+  }
+
+  const weekly = usageData.weekly || [];
+  const monthly = usageData.monthly || [];
+  const visibleMonthly = showAllMonths ? monthly : monthly.slice(-3);
+  const maxUsage = Math.max(...weekly.map((item) => item.usage), 1);
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Weekly Usage Chart */}
+    <Animated.ScrollView
+      ref={scrollRef}
+      style={styles.container}
+      showsVerticalScrollIndicator={false}
+      bounces={false}
+      alwaysBounceVertical={false}
+      overScrollMode="never"
+      onScroll={onScroll}
+      scrollEventThrottle={16}
+    >
       <View style={[styles.card, { backgroundColor: colors.primary, opacity: 0.95 }]}>
-        <Text style={[styles.cardTitle, { color: colors.darkBg }]}>
-          Weekly Usage Pattern
-        </Text>
+        <Text style={[styles.cardTitle, { color: colors.darkBg }]}>Weekly Usage Pattern</Text>
         <View style={styles.chartContainer}>
-          {usageData.map((item, index) => (
-            <View key={index} style={styles.barWrapper}>
+          {weekly.map((item) => (
+            <View key={item.day} style={styles.barWrapper}>
               <View
                 style={[
                   styles.bar,
@@ -44,120 +80,85 @@ export default function UsageSection({ colors }) {
                   },
                 ]}
               />
-              <Text style={[styles.barLabel, { color: colors.darkBg, marginTop: 8 }]}>
-                {item.day}
-              </Text>
-              <Text style={[styles.barValue, { color: colors.darkBg }]}>
-                {item.usage}
-              </Text>
+              <Text style={[styles.barLabel, { color: colors.darkBg }]}>{item.day}</Text>
+              <Text style={[styles.barValue, { color: colors.darkBg }]}>{item.usage}</Text>
             </View>
           ))}
         </View>
       </View>
 
-      {/* Usage Details */}
       <View style={[styles.card, { backgroundColor: colors.darkBlue }]}>
-        <Text style={[styles.cardTitle, { color: colors.white }]}>
-          Current Week Overview
-        </Text>
+        <Text style={[styles.cardTitle, { color: colors.white }]}>Current Week Overview</Text>
         <View style={styles.statsGrid}>
           <View style={styles.statsItem}>
-            <Text style={[styles.statsLabel, { color: colors.white }]}>
-              Total Usage
-            </Text>
+            <Text style={[styles.statsLabel, { color: colors.white }]}>Total Usage</Text>
             <Text style={[styles.statsValue, { color: colors.accent }]}>
-              74.1 kWh
+              {usageData.summary.totalUsage} kWh
             </Text>
           </View>
           <View style={styles.statsItem}>
-            <Text style={[styles.statsLabel, { color: colors.white }]}>
-              Daily Avg
-            </Text>
+            <Text style={[styles.statsLabel, { color: colors.white }]}>Daily Avg</Text>
             <Text style={[styles.statsValue, { color: colors.accent }]}>
-              10.6 kWh
+              {usageData.summary.dailyAverage} kWh
             </Text>
           </View>
           <View style={styles.statsItem}>
-            <Text style={[styles.statsLabel, { color: colors.white }]}>
-              Peak Day
-            </Text>
+            <Text style={[styles.statsLabel, { color: colors.white }]}>Peak Day</Text>
             <Text style={[styles.statsValue, { color: colors.accent }]}>
-              Sun (14.8)
+              {usageData.summary.peakDay.day} ({usageData.summary.peakDay.usage})
             </Text>
           </View>
           <View style={styles.statsItem}>
-            <Text style={[styles.statsLabel, { color: colors.white }]}>
-              Low Day
-            </Text>
+            <Text style={[styles.statsLabel, { color: colors.white }]}>Low Day</Text>
             <Text style={[styles.statsValue, { color: colors.accent }]}>
-              Wed (7.8)
+              {usageData.summary.lowDay.day} ({usageData.summary.lowDay.usage})
             </Text>
           </View>
         </View>
       </View>
 
-      {/* Monthly Comparison */}
       <View style={[styles.card, { backgroundColor: colors.primary, opacity: 0.95 }]}>
-        
         <View style={styles.headerRow}>
-          <Text style={[styles.cardTitle, { color: colors.darkBg }]}>
-          Monthly Comparison 
-        </Text> 
-        
-        <TouchableOpacity style={styles.button}>
-      <Text style={styles.buttonText}>see more</Text>
-    </TouchableOpacity>
+          <Text style={[styles.cardTitle, { color: colors.darkBg }]}>Monthly Comparison</Text>
+          <TouchableOpacity style={styles.button} onPress={() => setShowAllMonths((value) => !value)}>
+            <Text style={styles.buttonText}>{showAllMonths ? 'show less' : 'see more'}</Text>
+          </TouchableOpacity>
         </View>
 
-        {monthlyData.map((item, index) => (
-          <View key={index} style={styles.monthRow}>
+        {visibleMonthly.map((item) => (
+          <View key={item.month} style={styles.monthRow}>
             <View>
-              <Text style={[styles.monthName, { color: colors.darkBg }]}>
-                {item.month}
-              </Text>
+              <Text style={[styles.monthName, { color: colors.darkBg }]}>{item.month}</Text>
               <Text style={[styles.monthUsage, { color: colors.darkBg, opacity: 0.7 }]}>
                 {item.usage} kWh
               </Text>
             </View>
             <Text style={[styles.monthCost, { color: colors.accent, fontWeight: 'bold' }]}>
-              ₱{item.cost}
+              PHP {item.cost}
             </Text>
           </View>
         ))}
       </View>
 
-      {/* Efficiency Tips */}
       <View style={[styles.card, { backgroundColor: colors.accent, opacity: 0.9 }]}>
-        <Text style={[styles.cardTitle, { color: colors.darkBg }]}>
-          💡 Efficiency Tips
-        </Text>
-        <Text style={[styles.tipText, { color: colors.darkBg }]}>
-          • Use LED bulbs to save up to 75% energy
-        </Text>
-        <Text style={[styles.tipText, { color: colors.darkBg }]}>
-          • Set AC temperature to 24-26°C
-        </Text>
-        <Text style={[styles.tipText, { color: colors.darkBg }]}>
-          • Unplug devices when not in use
-        </Text>
-        <Text style={[styles.tipText, { color: colors.darkBg }]}>
-          • Use appliances during off-peak hours
-        </Text>
+        <Text style={[styles.cardTitle, { color: colors.darkBg }]}>Efficiency Tips</Text>
+        {usageData.tips.map((tip) => (
+          <Text key={tip} style={[styles.tipText, { color: colors.darkBg }]}>
+            - {tip}
+          </Text>
+        ))}
       </View>
-    </ScrollView>
+    </Animated.ScrollView>
   );
 }
 
-
-
 const styles = StyleSheet.create({
   headerRow: {
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  alignItems: 'center'
-},
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   button: {
-    marginLeft: '',
     padding: 10,
     borderRadius: 5,
     alignItems: 'center',
@@ -171,6 +172,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingBottom: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
   },
   card: {
     borderRadius: 12,
@@ -207,7 +214,7 @@ const styles = StyleSheet.create({
   barLabel: {
     fontSize: 11,
     fontWeight: '600',
-    marginTop: 4,
+    marginTop: 8,
   },
   barValue: {
     fontSize: 10,
@@ -259,4 +266,3 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
 });
-
