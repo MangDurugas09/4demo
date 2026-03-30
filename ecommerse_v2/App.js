@@ -17,7 +17,7 @@ import UsageSection from './components/UsageSection';
 import PaymentSection from './components/PaymentSection';
 import CompanyInfo from './components/CompanyInfo';
 
-const API_URL = "http://10.0.67.191:5000"; // ⚠️ CHANGE THIS
+const API_URL = "http://10.174.223.169:5000"; // ⚠️ CHANGE THIS
 
 const COLORS = {
   primary: '#ADD8E6',
@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
 
   tabIndicator: {
     position: 'absolute',
-    bottom: 4,
+    bottom: 45,
     height: 3,
     width: '25%',
     backgroundColor: '#FFD700',
