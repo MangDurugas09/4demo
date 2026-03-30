@@ -7,15 +7,17 @@ import {
   Text,
   Modal,
   TextInput,
-  Button,
   Animated,
   Dimensions,
+  Alert,
 } from 'react-native';
 
 import Dashboard from './components/Dashboard';
 import UsageSection from './components/UsageSection';
 import PaymentSection from './components/PaymentSection';
 import CompanyInfo from './components/CompanyInfo';
+
+const API_URL = "http://10.0.67.191:5000"; // ⚠️ CHANGE THIS
 
 const COLORS = {
   primary: '#ADD8E6',
@@ -38,15 +40,35 @@ export default function App() {
   const screenWidth = Dimensions.get('window').width;
   const tabWidth = screenWidth / tabs.length;
 
-  useEffect(() => {
-    const index = tabs.indexOf('company');
-    tabIndicatorAnim.setValue(index);
-  }, []);
+  // ======================
+  // 🔐 LOGIN FUNCTION
+  // ======================
+  const handleLogin = async () => {
+    try {
+      const res = await fetch(`${API_URL}/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username,
+          password,
+        }),
+      });
 
-  const handleLogin = () => {
-    if (username && password) {
-      setIsLoggedIn(true);
-      setShowLoginModal(false);
+      const data = await res.json();
+
+      if (res.ok) {
+        setIsLoggedIn(true);
+        setShowLoginModal(false);
+        Alert.alert("Success", "Login successful!");
+      } else {
+        Alert.alert("Error", data.message || "Login failed");
+      }
+
+    } catch (err) {
+      Alert.alert("Error", "Server not reachable");
+      console.log(err);
     }
   };
 
@@ -79,50 +101,32 @@ export default function App() {
   return (
     <View style={styles.container}>
 
-      {/* ⚡ LOGIN MODAL */}
-      <Modal
-        visible={showLoginModal && !isLoggedIn}
-        animationType="fade"
-        transparent
-      >
+      {/* LOGIN MODAL */}
+      <Modal visible={showLoginModal && !isLoggedIn} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
 
             <Text style={styles.modalTitle}>⚡ Electripay</Text>
-            <Text style={styles.modalSubtitle}>
-              Secure Client Access
-            </Text>
 
             <TextInput
               style={styles.inputModern}
               placeholder="Username"
-              placeholderTextColor="#aaa"
               value={username}
               onChangeText={setUsername}
+              placeholderTextColor="#aaa"
             />
 
             <TextInput
               style={styles.inputModern}
               placeholder="Password"
-              placeholderTextColor="#aaa"
               secureTextEntry
               value={password}
               onChangeText={setPassword}
+              placeholderTextColor="#aaa"
             />
 
-            <TouchableOpacity
-              style={styles.loginButton}
-              onPress={handleLogin}
-            >
+            <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
               <Text style={styles.loginButtonText}>Login</Text>
-            </TouchableOpacity>
-
-            {/* SIGN UP */}
-            <TouchableOpacity>
-              <Text style={styles.signupText}>
-                Don’t have an account?{' '}
-                <Text style={styles.signupLink}>Sign up</Text>
-              </Text>
             </TouchableOpacity>
 
           </View>
@@ -131,195 +135,131 @@ export default function App() {
 
       {/* HEADER */}
       <ScrollView style={styles.scrollView}>
-        <View style={[styles.header, { backgroundColor: COLORS.darkBlue }]}>
-          <Text style={[styles.headerTitle, { color: COLORS.accent }]}>
-            ELECTRIPAY
-          </Text>
-          <Text style={[styles.headerSubtitle, { color: COLORS.accent }]}>
-            Client Dashboard
-          </Text>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>ELECTRIPAY</Text>
         </View>
 
-        <View style={styles.content}>{renderContent()}</View>
+        <View style={styles.content}>
+          {renderContent()}
+        </View>
       </ScrollView>
 
       {/* TABS */}
-      <View style={[styles.tabBar, { backgroundColor: COLORS.darkBg }]}>
+      <View style={styles.tabBar}>
         <Animated.View
           style={[
             styles.tabIndicator,
             {
-              transform: [
-                {
-                  translateX: tabIndicatorAnim.interpolate({
-                    inputRange: tabs.map((_, i) => i),
-                    outputRange: tabs.map((_, i) => i * tabWidth),
-                  }),
-                },
-              ],
-            },
+              transform: [{
+                translateX: tabIndicatorAnim.interpolate({
+                  inputRange: tabs.map((_, i) => i),
+                  outputRange: tabs.map((_, i) => i * tabWidth),
+                })
+              }]
+            }
           ]}
         />
 
         {tabs.map((tab) => (
-          <TabButton
+          <TouchableOpacity
             key={tab}
-            label={tab.toUpperCase()}
-            isActive={activeTab === tab}
+            style={styles.tabButton}
             onPress={() => handleTabPress(tab)}
-            colors={COLORS}
-          />
+          >
+            <Text style={styles.tabText}>{tab.toUpperCase()}</Text>
+          </TouchableOpacity>
         ))}
       </View>
     </View>
   );
 }
 
-function TabButton({ label, isActive, onPress, colors }) {
-  return (
-    <TouchableOpacity style={styles.tabButton} onPress={onPress}>
-      <Text
-        style={[
-          styles.tabButtonText,
-          {
-            color: isActive ? colors.accent : colors.white,
-            fontWeight: isActive ? 'bold' : '600',
-          },
-        ]}
-      >
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
-}
-
 const styles = StyleSheet.create({
-
-  container: {
-    flex: 1,
-    backgroundColor: '#0B1E2E',
-  },
-
-  scrollView: {
-    flex: 1,
-  },
+  container: { flex: 1, backgroundColor: '#0B1E2E' },
+  scrollView: { flex: 1 },
 
   header: {
-    paddingTop: 50,
-    paddingBottom: 30,
-    paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 20,
     alignItems: 'center',
   },
 
   headerTitle: {
-    fontSize: 45,
-    fontWeight: '900',
-    marginBottom: 8,
-  },
-
-  headerSubtitle: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 30,
+    color: '#FFD700',
+    fontWeight: 'bold',
   },
 
   content: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 20,
-    minHeight: 500,
+    padding: 16,
   },
 
   tabBar: {
     flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: '#ADD8E6',
-    paddingBottom: 20,
-    marginBottom: 25,
+    backgroundColor: '#111',
+    height: 100,
+    bottom: 0,
   },
 
   tabButton: {
     flex: 1,
-    paddingVertical: 16,
+    justifyContent: 'center',
     alignItems: 'center',
   },
 
-  tabButtonText: {
+  tabText: {
+    color: '#fff',
     fontSize: 12,
+    marginBottom: 45,
   },
 
   tabIndicator: {
     position: 'absolute',
-    bottom: 20,
+    bottom: 4,
     height: 3,
     width: '25%',
     backgroundColor: '#FFD700',
   },
 
-  /* ⚡ LOGIN MODAL STYLES */
-
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(5, 15, 25, 0.88)', // electric dim
+    backgroundColor: 'rgba(0,0,0,0.8)',
     justifyContent: 'center',
     alignItems: 'center',
   },
 
   modalCard: {
     width: '85%',
-    backgroundColor: '#0F2A3D',
-    borderRadius: 22,
-    padding: 25,
-    elevation: 10,
-    shadowColor: '#FFD700',
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
+    backgroundColor: '#1A2F3F',
+    padding: 20,
+    borderRadius: 15,
   },
 
   modalTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
+    fontSize: 24,
     color: '#FFD700',
-    textAlign: 'center',
-  },
-
-  modalSubtitle: {
-    fontSize: 13,
-    color: '#ccc',
     textAlign: 'center',
     marginBottom: 20,
   },
 
   inputModern: {
-    backgroundColor: '#1A3C52',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 12,
+    backgroundColor: '#2A3F50',
+    marginBottom: 10,
+    padding: 10,
+    borderRadius: 8,
     color: '#fff',
   },
 
   loginButton: {
     backgroundColor: '#FFD700',
-    padding: 14,
-    borderRadius: 10,
-    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
     marginTop: 10,
   },
 
   loginButtonText: {
-    color: '#0B1E2E',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-
-  signupText: {
-    color: '#ccc',
     textAlign: 'center',
-    marginTop: 15,
-    fontSize: 12,
-  },
-
-  signupLink: {
-    color: '#FFD700',
     fontWeight: 'bold',
+    color: '#000',
   },
 });
