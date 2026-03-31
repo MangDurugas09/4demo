@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Animated } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Animated, Platform } from 'react-native';
 import axios from 'axios';
 
 export default function UsageSection({ colors, apiBaseUrl, user, isActive, onScroll }) {
@@ -64,6 +64,10 @@ export default function UsageSection({ colors, apiBaseUrl, user, isActive, onScr
   const monthly = usageData.monthly || [];
   const visibleMonthly = showAllMonths ? monthly : monthly.slice(-3);
   const maxUsage = Math.max(...weekly.map((item) => item.usage), 1);
+  const minUsage = Math.min(...weekly.map((item) => item.usage), maxUsage);
+  const averageUsage = usageData.summary?.dailyAverage || 0;
+  const chartScale = [maxUsage, Math.max(Math.round(maxUsage * 0.66), 1), Math.max(Math.round(maxUsage * 0.33), 1)];
+  const isWeb = Platform.OS === 'web';
 
   return (
     <Animated.ScrollView
@@ -76,24 +80,67 @@ export default function UsageSection({ colors, apiBaseUrl, user, isActive, onScr
       onScroll={onScroll}
       scrollEventThrottle={16}
     >
-      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <Text style={[styles.cardTitle, { color: colors.text }]}>Weekly Usage Pattern</Text>
-        <View style={styles.chartContainer}>
-          {weekly.map((item) => (
-            <View key={item.day} style={styles.barWrapper}>
-              <View
-                style={[
-                  styles.bar,
-                  {
-                    height: (item.usage / maxUsage) * 150,
-                    backgroundColor: colors.accent,
-                  },
-                ]}
-              />
-              <Text style={[styles.barLabel, { color: colors.text }]}>{item.day}</Text>
-              <Text style={[styles.barValue, { color: colors.mutedText }]}>{item.usage}</Text>
+      <View style={[styles.card, styles.chartCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={styles.chartHeader}>
+          <View>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>Weekly Usage Pattern</Text>
+            <Text style={[styles.chartSubtitle, { color: colors.mutedText }]}>
+              {isWeb ? 'A cleaner week-by-week desktop view of household consumption.' : 'Track how daily usage shifts across the week.'}
+            </Text>
+          </View>
+          <View style={[styles.chartBadge, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+            <Text style={[styles.chartBadgeLabel, { color: colors.mutedText }]}>Avg</Text>
+            <Text style={[styles.chartBadgeValue, { color: colors.text }]}>{averageUsage} kWh</Text>
+          </View>
+        </View>
+
+        <View style={styles.chartMetaRow}>
+          <View style={[styles.chartMetaCard, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+            <Text style={[styles.chartMetaLabel, { color: colors.mutedText }]}>Peak</Text>
+            <Text style={[styles.chartMetaValue, { color: colors.text }]}>{maxUsage} kWh</Text>
+          </View>
+          <View style={[styles.chartMetaCard, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+            <Text style={[styles.chartMetaLabel, { color: colors.mutedText }]}>Low</Text>
+            <Text style={[styles.chartMetaValue, { color: colors.text }]}>{minUsage} kWh</Text>
+          </View>
+        </View>
+
+        <View style={styles.chartShell}>
+          <View style={styles.chartScale}>
+            {chartScale.map((value) => (
+              <Text key={value} style={[styles.chartScaleLabel, { color: colors.mutedText }]}>
+                {value}
+              </Text>
+            ))}
+            <Text style={[styles.chartScaleLabel, { color: colors.mutedText }]}>0</Text>
+          </View>
+
+          <View style={styles.chartArea}>
+            {chartScale.map((value) => (
+              <View key={`line-${value}`} style={[styles.chartGuide, { borderBottomColor: colors.border }]} />
+            ))}
+            <View style={[styles.chartGuide, styles.chartGuideBase, { borderBottomColor: colors.border }]} />
+
+            <View style={styles.chartBarsRow}>
+              {weekly.map((item) => (
+                <View key={item.day} style={styles.barWrapper}>
+                  <Text style={[styles.barValue, { color: colors.text }]}>{item.usage}</Text>
+                  <View style={[styles.barTrack, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+                    <View
+                      style={[
+                        styles.bar,
+                        {
+                          height: `${Math.max((item.usage / maxUsage) * 100, 8)}%`,
+                          backgroundColor: colors.accent,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <Text style={[styles.barLabel, { color: colors.mutedText }]}>{item.day}</Text>
+                </View>
+              ))}
             </View>
-          ))}
+          </View>
         </View>
       </View>
 
@@ -201,11 +248,96 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
   },
+  chartCard: {
+    overflow: 'hidden',
+  },
+  chartHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 14,
+    marginBottom: 14,
+  },
   cardTitle: {
     flex: 1,
     fontSize: 17,
     fontWeight: '800',
     marginBottom: 16,
+  },
+  chartSubtitle: {
+    fontSize: 13,
+    lineHeight: 20,
+    maxWidth: 460,
+    marginTop: -8,
+  },
+  chartBadge: {
+    borderWidth: 1,
+    borderRadius: 18,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    minWidth: 88,
+  },
+  chartBadgeLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  chartBadgeValue: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  chartMetaRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  chartMetaCard: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  chartMetaLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
+  },
+  chartMetaValue: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  chartShell: {
+    flexDirection: 'row',
+    minHeight: 260,
+  },
+  chartScale: {
+    width: 34,
+    justifyContent: 'space-between',
+    paddingRight: 8,
+    paddingBottom: 30,
+  },
+  chartScaleLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  chartArea: {
+    flex: 1,
+    position: 'relative',
+    justifyContent: 'flex-end',
+  },
+  chartGuide: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    borderBottomWidth: 1,
+  },
+  chartGuideBase: {
+    bottom: 30,
   },
   chartContainer: {
     flexDirection: 'row',
@@ -214,24 +346,42 @@ const styles = StyleSheet.create({
     height: 200,
     paddingVertical: 16,
   },
+  chartBarsRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: 10,
+    height: 230,
+    paddingTop: 12,
+  },
   barWrapper: {
     alignItems: 'center',
     flex: 1,
+    justifyContent: 'flex-end',
+  },
+  barTrack: {
+    width: '100%',
+    maxWidth: 56,
+    height: 170,
+    borderWidth: 1,
+    borderRadius: 18,
+    justifyContent: 'flex-end',
+    padding: 6,
+    marginBottom: 10,
   },
   bar: {
-    width: 30,
-    borderRadius: 8,
-    marginHorizontal: 4,
+    width: '100%',
+    borderRadius: 12,
+    minHeight: 12,
   },
   barLabel: {
     fontSize: 11,
-    fontWeight: '600',
-    marginTop: 8,
+    fontWeight: '700',
   },
   barValue: {
-    fontSize: 10,
-    fontWeight: '500',
-    marginTop: 2,
+    fontSize: 11,
+    fontWeight: '800',
+    marginBottom: 8,
   },
   statsGrid: {
     flexDirection: 'row',

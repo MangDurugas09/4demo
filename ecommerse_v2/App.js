@@ -12,6 +12,7 @@ import {
   Dimensions,
   Alert,
   Image,
+  Platform,
 } from 'react-native';
 
 import Dashboard from './components/Dashboard';
@@ -19,6 +20,8 @@ import UsageSection from './components/UsageSection';
 import PaymentSection from './components/PaymentSection';
 import CompanyInfo from './components/CompanyInfo';
 import { useFonts } from 'expo-font';
+
+const IS_WEB = Platform.OS === 'web';
 
 const API_CONFIG = {
   local: 'http://10.0.78.46:5000',
@@ -108,30 +111,54 @@ export default function App() {
     ElectroFont2: require('./assets/fonts/Roboc.otf'),
   });
   const [activeTab, setActiveTab] = useState('company');
-  const [showLoginModal, setShowLoginModal] = useState(true);
+  const [showLoginModal, setShowLoginModal] = useState(!IS_WEB);
   const [authMode, setAuthMode] = useState('login');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [signupForm, setSignupForm] = useState(emptySignupForm);
+  const [showSignupPassword, setShowSignupPassword] = useState(false);
+  const [showSignupConfirmPassword, setShowSignupConfirmPassword] = useState(false);
   const [forgotForm, setForgotForm] = useState(emptyForgotForm);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [showForgotConfirmPassword, setShowForgotConfirmPassword] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [apiUrl, setApiUrl] = useState('');
   const [isResolvingApi, setIsResolvingApi] = useState(true);
   const [themeMode, setThemeMode] = useState('dark');
+  const [webMenuOpen, setWebMenuOpen] = useState(false);
   const tabIndicatorAnim = useRef(new Animated.Value(0)).current;
+  const modalTranslateY = useRef(new Animated.Value(70)).current;
+  const modalOpacity = useRef(new Animated.Value(0)).current;
+  const webMenuTranslateX = useRef(new Animated.Value(24)).current;
+  const webMenuOpacity = useRef(new Animated.Value(0)).current;
+  const webContentTranslateY = useRef(new Animated.Value(18)).current;
+  const webContentOpacity = useRef(new Animated.Value(0)).current;
   const pagerRef = useRef(null);
   const colors = THEMES[themeMode];
+  const isWeb = IS_WEB;
 
-  const tabs = ['company', 'payment', 'usage', 'profile'];
+  const tabs = ['company', 'payment', 'dashboard', 'profile'];
   const screenWidth = Dimensions.get('window').width;
   const tabWidth = screenWidth / tabs.length;
+  const pageWidth = isWeb ? Math.min(screenWidth, 1240) : screenWidth;
+  const webHighlights = [
+    { value: 'Live Bills', label: 'Track balances and due dates in real time' },
+    { value: 'QR Payments', label: 'Pay in seconds and keep proof in one place' },
+    { value: 'Usage Trends', label: 'Spot patterns before the next billing cycle' },
+  ];
 
   const resetAuthFields = () => {
     setUsername('');
     setPassword('');
+    setShowPassword(false);
     setSignupForm(emptySignupForm);
+    setShowSignupPassword(false);
+    setShowSignupConfirmPassword(false);
     setForgotForm(emptyForgotForm);
+    setShowForgotPassword(false);
+    setShowForgotConfirmPassword(false);
   };
 
   const fetchWithTimeout = async (url, options = {}, timeoutMs = 5000) => {
@@ -201,6 +228,85 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (showLoginModal && !isLoggedIn) {
+      modalTranslateY.setValue(70);
+      modalOpacity.setValue(0);
+
+      Animated.parallel([
+        Animated.timing(modalTranslateY, {
+          toValue: 0,
+          duration: 420,
+          useNativeDriver: true,
+        }),
+        Animated.timing(modalOpacity, {
+          toValue: 1,
+          duration: 360,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [showLoginModal, isLoggedIn, modalOpacity, modalTranslateY]);
+
+  useEffect(() => {
+    if (!isWeb) {
+      return;
+    }
+
+    if (webMenuOpen) {
+      webMenuTranslateX.setValue(24);
+      webMenuOpacity.setValue(0);
+      Animated.parallel([
+        Animated.timing(webMenuTranslateX, {
+          toValue: 0,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+        Animated.timing(webMenuOpacity, {
+          toValue: 1,
+          duration: 180,
+          useNativeDriver: true,
+        }),
+      ]).start();
+      return;
+    }
+
+    Animated.parallel([
+      Animated.timing(webMenuTranslateX, {
+        toValue: 24,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+      Animated.timing(webMenuOpacity, {
+        toValue: 0,
+        duration: 140,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [isWeb, webMenuOpen, webMenuOpacity, webMenuTranslateX]);
+
+  useEffect(() => {
+    if (!isWeb || !isLoggedIn) {
+      return;
+    }
+
+    webContentTranslateY.setValue(activeTab === 'profile' ? 24 : 14);
+    webContentOpacity.setValue(0);
+
+    Animated.parallel([
+      Animated.timing(webContentTranslateY, {
+        toValue: 0,
+        duration: activeTab === 'profile' ? 340 : 220,
+        useNativeDriver: true,
+      }),
+      Animated.timing(webContentOpacity, {
+        toValue: 1,
+        duration: activeTab === 'profile' ? 300 : 180,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [activeTab, isLoggedIn, isWeb, webContentOpacity, webContentTranslateY]);
+
   if (!fontsLoaded) {
     return null;
   }
@@ -253,6 +359,8 @@ export default function App() {
         setCurrentUser(data.user);
         setIsLoggedIn(true);
         setShowLoginModal(false);
+        setWebMenuOpen(false);
+        if (isWeb) setActiveTab('dashboard');
         switchAuthMode('login');
         Alert.alert('Success', 'Login successful!');
       } else {
@@ -309,6 +417,8 @@ export default function App() {
         setCurrentUser(data.user);
         setIsLoggedIn(true);
         setShowLoginModal(false);
+        setWebMenuOpen(false);
+        if (isWeb) setActiveTab('dashboard');
         switchAuthMode('login');
         Alert.alert('Success', 'Account created successfully!');
       } else {
@@ -372,13 +482,50 @@ export default function App() {
   const handleLogout = () => {
     setCurrentUser(null);
     setIsLoggedIn(false);
-    setShowLoginModal(true);
+    setShowLoginModal(!isWeb);
     setActiveTab('company');
+    setWebMenuOpen(false);
     switchAuthMode('login');
   };
   const toggleTheme = () => {
     setThemeMode((mode) => (mode === 'dark' ? 'light' : 'dark'));
   };
+  const openAuthModal = (mode) => {
+    switchAuthMode(mode);
+    setShowLoginModal(true);
+  };
+  const renderThemeSwitch = () => (
+    <TouchableOpacity
+      onPress={toggleTheme}
+      style={[
+        styles.webThemeSwitch,
+        {
+          backgroundColor: themeMode === 'dark' ? colors.surfaceAlt : colors.accent,
+          borderColor: colors.border,
+        },
+      ]}
+    >
+      <Text style={[styles.webThemeSwitchLabel, { color: colors.text }]}>
+        {themeMode === 'dark' ? 'Dark' : 'Light'}
+      </Text>
+      <View
+        style={[
+          styles.webThemeSwitchTrack,
+          { backgroundColor: themeMode === 'dark' ? '#0b162b' : '#fff7ed' },
+        ]}
+      >
+        <View
+          style={[
+            styles.webThemeSwitchThumb,
+            {
+              backgroundColor: themeMode === 'dark' ? colors.accent : colors.darkBlue,
+              transform: [{ translateX: themeMode === 'dark' ? 18 : 0 }],
+            },
+          ]}
+        />
+      </View>
+    </TouchableOpacity>
+  );
 
   const handleUserRefresh = (updatedUser) => {
     setCurrentUser((current) => ({
@@ -416,6 +563,28 @@ export default function App() {
       styles.inputModern,
       { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border },
     ];
+    const renderPasswordField = (fieldProps) => (
+      <View
+        style={[
+          styles.passwordInputWrap,
+          { backgroundColor: colors.inputBg, borderColor: colors.border },
+        ]}
+      >
+        <TextInput
+          style={[styles.passwordInputField, { color: colors.text }]}
+          placeholder={fieldProps.placeholder}
+          placeholderTextColor={colors.mutedText}
+          secureTextEntry={!fieldProps.visible}
+          value={fieldProps.value}
+          onChangeText={fieldProps.onChangeText}
+        />
+        <TouchableOpacity onPress={fieldProps.onToggle} style={styles.passwordToggle}>
+          <Text style={[styles.passwordToggleText, { color: colors.darkBlue }]}>
+            {fieldProps.visible ? 'Hide' : 'Show'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
 
     if (authMode === 'signup') {
       return (
@@ -425,8 +594,20 @@ export default function App() {
           <TextInput style={themedInputStyle} placeholder="Contact Number" value={signupForm.contact} onChangeText={(text) => setSignupForm({ ...signupForm, contact: text })} placeholderTextColor={colors.mutedText} keyboardType="phone-pad" />
           <TextInput style={themedInputStyle} placeholder="Address" value={signupForm.address} onChangeText={(text) => setSignupForm({ ...signupForm, address: text })} placeholderTextColor={colors.mutedText} />
           <TextInput style={themedInputStyle} placeholder="Username" value={signupForm.username} onChangeText={(text) => setSignupForm({ ...signupForm, username: text })} placeholderTextColor={colors.mutedText} autoCapitalize="none" />
-          <TextInput style={themedInputStyle} placeholder="Password" secureTextEntry value={signupForm.password} onChangeText={(text) => setSignupForm({ ...signupForm, password: text })} placeholderTextColor={colors.mutedText} />
-          <TextInput style={themedInputStyle} placeholder="Confirm Password" secureTextEntry value={signupForm.confirmPassword} onChangeText={(text) => setSignupForm({ ...signupForm, confirmPassword: text })} placeholderTextColor={colors.mutedText} />
+          {renderPasswordField({
+            placeholder: 'Password',
+            value: signupForm.password,
+            visible: showSignupPassword,
+            onToggle: () => setShowSignupPassword((value) => !value),
+            onChangeText: (text) => setSignupForm({ ...signupForm, password: text }),
+          })}
+          {renderPasswordField({
+            placeholder: 'Confirm Password',
+            value: signupForm.confirmPassword,
+            visible: showSignupConfirmPassword,
+            onToggle: () => setShowSignupConfirmPassword((value) => !value),
+            onChangeText: (text) => setSignupForm({ ...signupForm, confirmPassword: text }),
+          })}
           <TouchableOpacity style={[styles.loginButton, { backgroundColor: colors.accent }]} onPress={handleSignup}>
             <Text style={[styles.loginButtonText, { color: colors.mode === 'dark' ? '#0b1020' : '#ffffff' }]}>Create Account</Text>
           </TouchableOpacity>
@@ -443,8 +624,20 @@ export default function App() {
           <TextInput style={themedInputStyle} placeholder="Username" value={forgotForm.username} onChangeText={(text) => setForgotForm({ ...forgotForm, username: text })} placeholderTextColor={colors.mutedText} autoCapitalize="none" />
           <TextInput style={themedInputStyle} placeholder="Email" value={forgotForm.email} onChangeText={(text) => setForgotForm({ ...forgotForm, email: text })} placeholderTextColor={colors.mutedText} autoCapitalize="none" />
           <TextInput style={themedInputStyle} placeholder="Contact Number" value={forgotForm.contact} onChangeText={(text) => setForgotForm({ ...forgotForm, contact: text })} placeholderTextColor={colors.mutedText} keyboardType="phone-pad" />
-          <TextInput style={themedInputStyle} placeholder="New Password" secureTextEntry value={forgotForm.newPassword} onChangeText={(text) => setForgotForm({ ...forgotForm, newPassword: text })} placeholderTextColor={colors.mutedText} />
-          <TextInput style={themedInputStyle} placeholder="Confirm New Password" secureTextEntry value={forgotForm.confirmNewPassword} onChangeText={(text) => setForgotForm({ ...forgotForm, confirmNewPassword: text })} placeholderTextColor={colors.mutedText} />
+          {renderPasswordField({
+            placeholder: 'New Password',
+            value: forgotForm.newPassword,
+            visible: showForgotPassword,
+            onToggle: () => setShowForgotPassword((value) => !value),
+            onChangeText: (text) => setForgotForm({ ...forgotForm, newPassword: text }),
+          })}
+          {renderPasswordField({
+            placeholder: 'Confirm New Password',
+            value: forgotForm.confirmNewPassword,
+            visible: showForgotConfirmPassword,
+            onToggle: () => setShowForgotConfirmPassword((value) => !value),
+            onChangeText: (text) => setForgotForm({ ...forgotForm, confirmNewPassword: text }),
+          })}
           <TouchableOpacity style={[styles.loginButton, { backgroundColor: colors.accent }]} onPress={handleForgotPassword}>
             <Text style={[styles.loginButtonText, { color: colors.mode === 'dark' ? '#0b1020' : '#ffffff' }]}>Reset Password</Text>
           </TouchableOpacity>
@@ -458,7 +651,13 @@ export default function App() {
     return (
       <>
         <TextInput style={themedInputStyle} placeholder="Username" value={username} onChangeText={setUsername} placeholderTextColor={colors.mutedText} autoCapitalize="none" />
-        <TextInput style={themedInputStyle} placeholder="Password" secureTextEntry value={password} onChangeText={setPassword} placeholderTextColor={colors.mutedText} />
+        {renderPasswordField({
+          placeholder: 'Password',
+          value: password,
+          visible: showPassword,
+          onToggle: () => setShowPassword((value) => !value),
+          onChangeText: setPassword,
+        })}
         <TouchableOpacity style={[styles.loginButton, { backgroundColor: colors.accent }]} onPress={handleLogin}>
           <Text style={[styles.loginButtonText, { color: colors.mode === 'dark' ? '#0b1020' : '#ffffff' }]}>
             {isResolvingApi ? 'Connecting...' : 'Login'}
@@ -479,108 +678,451 @@ export default function App() {
     );
   };
 
+  const renderActiveSection = () => {
+    if (isWeb && !isLoggedIn) {
+      return (
+        <CompanyInfo
+          colors={colors}
+          apiBaseUrl={apiUrl}
+          isActive
+        />
+      );
+    }
+
+    if (activeTab === 'company') {
+      return (
+        <CompanyInfo
+          colors={colors}
+          apiBaseUrl={apiUrl}
+          isActive
+        />
+      );
+    }
+
+    if (activeTab === 'payment') {
+      return (
+        <PaymentSection
+          colors={colors}
+          apiBaseUrl={apiUrl}
+          user={currentUser}
+          isActive
+        />
+      );
+    }
+
+    if (activeTab === 'dashboard') {
+      return (
+        <UsageSection
+          colors={colors}
+          apiBaseUrl={apiUrl}
+          user={currentUser}
+          isActive
+        />
+      );
+    }
+
+    return (
+      <Dashboard
+        colors={colors}
+        apiBaseUrl={apiUrl}
+        user={currentUser}
+        isActive
+        onLogout={handleLogout}
+        onUserRefresh={handleUserRefresh}
+      />
+    );
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar
         barStyle={colors.mode === 'dark' ? 'light-content' : 'dark-content'}
         backgroundColor={colors.background}
       />
+      {isWeb && (
+        <>
+          <View
+            style={[
+              styles.webBackdropTop,
+              { backgroundColor: colors.mode === 'dark' ? 'rgba(251, 191, 36, 0.10)' : 'rgba(42, 95, 191, 0.10)' },
+            ]}
+          />
+          <View
+            style={[
+              styles.webBackdropSide,
+              { backgroundColor: colors.mode === 'dark' ? 'rgba(42, 95, 191, 0.18)' : 'rgba(234, 88, 12, 0.10)' },
+            ]}
+          />
+          <View
+            style={[
+              styles.webBackdropGrid,
+              { borderColor: colors.mode === 'dark' ? 'rgba(159, 176, 205, 0.08)' : 'rgba(15, 23, 42, 0.06)' },
+            ]}
+          />
+        </>
+      )}
       <Modal visible={showLoginModal && !isLoggedIn} transparent animationType="fade">
         <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
-          <View style={[styles.modalCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>Electripay</Text>
+          <View
+            style={[
+              styles.modalBackdropHalo,
+              { borderColor: colors.mode === 'dark' ? 'rgba(251, 191, 36, 0.16)' : 'rgba(42, 95, 191, 0.12)' },
+            ]}
+          />
+          <View
+            style={[
+              styles.modalBackdropHaloSmall,
+              { borderColor: colors.mode === 'dark' ? 'rgba(159, 176, 205, 0.12)' : 'rgba(234, 88, 12, 0.10)' },
+            ]}
+          />
+          <View
+            style={[
+              styles.modalBackdropGrid,
+              { borderColor: colors.mode === 'dark' ? 'rgba(159, 176, 205, 0.08)' : 'rgba(15, 23, 42, 0.06)' },
+            ]}
+          />
+          <View
+            style={[
+              styles.modalBackdropBeam,
+              { backgroundColor: colors.mode === 'dark' ? 'rgba(31, 50, 88, 0.35)' : 'rgba(42, 95, 191, 0.12)' },
+            ]}
+          />
+          <View
+            style={[
+              styles.modalBackdropGlow,
+              { backgroundColor: colors.mode === 'dark' ? 'rgba(42, 95, 191, 0.24)' : 'rgba(234, 88, 12, 0.16)' },
+            ]}
+          />
+          <View
+            style={[
+              styles.modalBackdropAccent,
+              { backgroundColor: colors.mode === 'dark' ? 'rgba(251, 191, 36, 0.16)' : 'rgba(42, 95, 191, 0.12)' },
+            ]}
+          />
+          <View
+            style={[
+              styles.modalBackdropLineOne,
+              { backgroundColor: colors.mode === 'dark' ? 'rgba(251, 191, 36, 0.28)' : 'rgba(42, 95, 191, 0.18)' },
+            ]}
+          />
+          <View
+            style={[
+              styles.modalBackdropLineTwo,
+              { backgroundColor: colors.mode === 'dark' ? 'rgba(159, 176, 205, 0.22)' : 'rgba(234, 88, 12, 0.14)' },
+            ]}
+          />
+          <View
+            style={[
+              styles.modalBackdropOrb,
+              { backgroundColor: colors.mode === 'dark' ? 'rgba(16, 163, 74, 0.12)' : 'rgba(234, 88, 12, 0.10)' },
+            ]}
+          />
+          <Animated.View
+            style={[
+              styles.modalCard,
+              isWeb && styles.modalCardWeb,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+                opacity: modalOpacity,
+                transform: [{ translateY: modalTranslateY }],
+              },
+            ]}
+          >
+            {isWeb && (
+              <TouchableOpacity
+                onPress={() => setShowLoginModal(false)}
+                style={[styles.modalCloseButton, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}
+              >
+                <Text style={[styles.modalCloseButtonText, { color: colors.text }]}>Close</Text>
+              </TouchableOpacity>
+            )}
+            {isWeb && (
+              <Text style={[styles.modalEyebrow, { color: colors.accent }]}>
+                Secure Account Access
+              </Text>
+            )}
+            <Text style={[styles.modalTitle, isWeb && styles.modalTitleWeb, { color: colors.text }]}>Electripay</Text>
+            {isWeb && (
+              <Text style={[styles.modalIntro, { color: colors.mutedText }]}>
+                Sign in to manage bills, monitor energy usage, and keep payment activity in one dashboard.
+              </Text>
+            )}
             {renderAuthContent()}
-          </View>
+          </Animated.View>
         </View>
       </Modal>
 
-      <View style={styles.mainContent}>
-        <View style={[styles.header, { borderBottomColor: colors.border }]}>
-          <View style={styles.headerBrand}>
-            <Image
-              source={require('./assets/Electripay-final-logo.png')}
-              style={styles.headerLogo}
-              resizeMode="contain"
-            />
-            <View>
-              <Text style={[styles.headerTitle, { color: colors.text }]}>
-              ELECTRIPAY
-              </Text>
-              <Text style={[styles.headerSubtitle, { color: colors.mutedText }]}>
-                Smart electric billing
-              </Text>
-            </View>
-          </View>
-          <TouchableOpacity
-            onPress={toggleTheme}
-            style={[styles.themeButton, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}
-          >
-            <Text style={[styles.themeButtonText, { color: colors.text }]}>
-              {themeMode === 'dark' ? 'Light' : 'Dark'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-        <View style={styles.pagerContainer}>
+      {isWeb ? (
+        <>
           <ScrollView
-            ref={pagerRef}
-            style={styles.pager}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            onMomentumScrollEnd={handleSwipeEnd}
-            contentOffset={{ x: tabs.indexOf(activeTab) * screenWidth, y: 0 }}
+            style={styles.mainContent}
+            contentContainerStyle={styles.webMainScrollContent}
+            showsVerticalScrollIndicator
             bounces={false}
-            overScrollMode="never"
           >
-            <View style={[styles.page, { width: screenWidth }]}>
-              <View style={styles.content}>
-                <CompanyInfo
-                  colors={colors}
-                  apiBaseUrl={apiUrl}
-                  isActive={activeTab === 'company'}
+            <View style={[styles.header, styles.headerWeb, { borderBottomColor: colors.border, backgroundColor: colors.surface }]}>
+              <View style={styles.headerBrand}>
+                <Image
+                  source={require('./assets/Electripay-final-logo.png')}
+                  style={styles.headerLogo}
+                  resizeMode="contain"
                 />
+                <View>
+                  <Text style={[styles.headerTitle, { color: colors.text }]}>
+                  ELECTRIPAY
+                  </Text>
+                  <Text style={[styles.headerSubtitle, { color: colors.mutedText }]}>
+                    Smart electric billing
+                  </Text>
+                </View>
               </View>
+              {!isLoggedIn ? (
+                <View style={styles.webHeaderActions}>
+                  <TouchableOpacity
+                    onPress={() => openAuthModal('login')}
+                    style={[styles.webHeaderButton, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}
+                  >
+                    <Text style={[styles.webHeaderButtonText, { color: colors.text }]}>Log In</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => openAuthModal('signup')}
+                    style={[styles.webHeaderButton, { backgroundColor: colors.accent, borderColor: colors.accent }]}
+                  >
+                    <Text style={[styles.webHeaderButtonText, { color: colors.mode === 'dark' ? '#0b1020' : '#ffffff' }]}>Sign Up</Text>
+                  </TouchableOpacity>
+                  {renderThemeSwitch()}
+                </View>
+              ) : (
+                <TouchableOpacity
+                  onPress={() => setWebMenuOpen((value) => !value)}
+                  style={[styles.webBurgerButton, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}
+                >
+                  <View style={styles.webBurgerIcon}>
+                    <View style={[styles.webBurgerLine, { backgroundColor: colors.text }]} />
+                    <View style={[styles.webBurgerLine, { backgroundColor: colors.text }]} />
+                    <View style={[styles.webBurgerLine, { backgroundColor: colors.text }]} />
+                  </View>
+                </TouchableOpacity>
+              )}
             </View>
-            <View style={[styles.page, { width: screenWidth }]}>
-              <View style={styles.content}>
-                <PaymentSection
-                  colors={colors}
-                  apiBaseUrl={apiUrl}
-                  user={currentUser}
-                  isActive={activeTab === 'payment'}
-                />
+            {!isLoggedIn && (
+              <View style={[styles.webHero, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+                <View style={styles.webHeroCopy}>
+                  <Text style={[styles.webEyebrow, { color: colors.accent }]}>Interactive Billing Portal</Text>
+                  <Text style={[styles.webTitle, { color: colors.text }]}>
+                    Manage electric billing with a website-style control center.
+                  </Text>
+                  <Text style={[styles.webDescription, { color: colors.mutedText }]}>
+                    Electripay brings billing, payments, usage tracking, and account tools into one polished web experience.
+                  </Text>
+                </View>
+                <View style={styles.webStatsRow}>
+                  {webHighlights.map((item) => (
+                    <View
+                      key={item.value}
+                      style={[styles.webStatCard, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}
+                    >
+                      <Text style={[styles.webStatValue, { color: colors.text }]}>{item.value}</Text>
+                      <Text style={[styles.webStatLabel, { color: colors.mutedText }]}>{item.label}</Text>
+                    </View>
+                  ))}
+                </View>
               </View>
-            </View>
-            <View style={[styles.page, { width: screenWidth }]}>
-              <View style={styles.content}>
-                <UsageSection
-                  colors={colors}
-                  apiBaseUrl={apiUrl}
-                  user={currentUser}
-                  isActive={activeTab === 'usage'}
-                />
+            )}
+            {isLoggedIn ? (
+              <View style={styles.webAppShell}>
+                <View style={[styles.webPortalHeader, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                  <View>
+                    <Text style={[styles.webPortalEyebrow, { color: colors.accent }]}>
+                      {activeTab.toUpperCase()}
+                    </Text>
+                    <Text style={[styles.webPortalTitle, { color: colors.text }]}>
+                      {activeTab === 'dashboard' ? 'Energy insights and account overview' : activeTab === 'payment' ? 'Payments and QR billing tools' : 'Profile and account controls'}
+                    </Text>
+                  </View>
+                  <View style={[styles.webPortalBadge, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+                    <Text style={[styles.webPortalBadgeText, { color: colors.text }]}>
+                      {currentUser?.name || currentUser?.username || 'Customer'}
+                    </Text>
+                  </View>
+                </View>
+                <Animated.View
+                  style={[
+                    styles.webContentFrame,
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                      opacity: webContentOpacity,
+                      transform: [{ translateY: webContentTranslateY }],
+                    },
+                  ]}
+                >
+                  <View style={[styles.content, styles.contentWeb, styles.contentWebLoggedIn]}>
+                    {renderActiveSection()}
+                  </View>
+                </Animated.View>
               </View>
-            </View>
-            <View style={[styles.page, { width: screenWidth }]}>
-              <View style={styles.content}>
-                <Dashboard
-                  colors={colors}
-                  apiBaseUrl={apiUrl}
-                  user={currentUser}
-                  isActive={activeTab === 'profile'}
-                  onLogout={handleLogout}
-                  onUserRefresh={handleUserRefresh}
-                />
+            ) : (
+              <View style={styles.pagerContainer}>
+                <View style={[styles.content, styles.contentWeb]}>
+                  {renderActiveSection()}
+                </View>
               </View>
-            </View>
+            )}
           </ScrollView>
+          {isLoggedIn && webMenuOpen && (
+          <>
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={() => setWebMenuOpen(false)}
+              style={[styles.webMenuBackdrop, { backgroundColor: 'rgba(2, 6, 23, 0.42)' }]}
+            />
+            <Animated.View
+              style={[
+                styles.webMenuPanel,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                  opacity: webMenuOpacity,
+                  transform: [{ translateX: webMenuTranslateX }],
+                },
+              ]}
+            >
+              <View style={[styles.webDrawerThemeWrap, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+                {renderThemeSwitch()}
+              </View>
+              {['dashboard', 'payment', 'profile'].map((tab) => (
+                <TouchableOpacity
+                  key={tab}
+                  onPress={() => {
+                    handleTabPress(tab);
+                    setWebMenuOpen(false);
+                  }}
+                  style={[
+                    styles.webDrawerItem,
+                    {
+                      backgroundColor: activeTab === tab ? colors.accent : colors.surfaceAlt,
+                      borderColor: activeTab === tab ? colors.accent : colors.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.webDrawerItemText,
+                      { color: activeTab === tab ? (colors.mode === 'dark' ? '#0b1020' : '#ffffff') : colors.text },
+                    ]}
+                  >
+                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity
+                onPress={handleLogout}
+                style={[styles.webDrawerItem, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}
+              >
+                <Text style={[styles.webDrawerItemText, { color: colors.danger }]}>Log Out</Text>
+              </TouchableOpacity>
+            </Animated.View>
+          </>
+          )}
+        </>
+      ) : (
+        <View style={styles.mainContent}>
+          <View style={[styles.header, { borderBottomColor: colors.border }]}>
+            <View style={styles.headerBrand}>
+              <Image
+                source={require('./assets/Electripay-final-logo.png')}
+                style={styles.headerLogo}
+                resizeMode="contain"
+              />
+              <View>
+                <Text style={[styles.headerTitle, { color: colors.text }]}>
+                ELECTRIPAY
+                </Text>
+                <Text style={[styles.headerSubtitle, { color: colors.mutedText }]}>
+                  Smart electric billing
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              onPress={toggleTheme}
+              style={[styles.themeButton, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}
+            >
+              <Text style={[styles.themeButtonText, { color: colors.text }]}>
+                {themeMode === 'dark' ? 'Light' : 'Dark'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.pagerContainer}>
+            <ScrollView
+              ref={pagerRef}
+              style={styles.pager}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onMomentumScrollEnd={handleSwipeEnd}
+              contentOffset={{ x: tabs.indexOf(activeTab) * pageWidth, y: 0 }}
+              bounces={false}
+              overScrollMode="never"
+            >
+              <View style={[styles.page, { width: pageWidth }]}>
+                <View style={styles.content}>
+                  <CompanyInfo
+                    colors={colors}
+                    apiBaseUrl={apiUrl}
+                    isActive={activeTab === 'company'}
+                  />
+                </View>
+              </View>
+              <View style={[styles.page, { width: pageWidth }]}>
+                <View style={styles.content}>
+                  <PaymentSection
+                    colors={colors}
+                    apiBaseUrl={apiUrl}
+                    user={currentUser}
+                    isActive={activeTab === 'payment'}
+                  />
+                </View>
+              </View>
+              <View style={[styles.page, { width: pageWidth }]}>
+                <View style={styles.content}>
+                  <UsageSection
+                    colors={colors}
+                    apiBaseUrl={apiUrl}
+                    user={currentUser}
+                    isActive={activeTab === 'dashboard'}
+                  />
+                </View>
+              </View>
+              <View style={[styles.page, { width: pageWidth }]}>
+                <View style={styles.content}>
+                  <Dashboard
+                    colors={colors}
+                    apiBaseUrl={apiUrl}
+                    user={currentUser}
+                    isActive={activeTab === 'profile'}
+                    onLogout={handleLogout}
+                    onUserRefresh={handleUserRefresh}
+                  />
+                </View>
+              </View>
+            </ScrollView>
+          </View>
         </View>
-      </View>
+      )}
 
-      <View style={[styles.tabBar, { backgroundColor: colors.tabBarBg, borderTopColor: colors.border }]}>
+      <View
+        style={[
+          styles.tabBar,
+          isWeb && styles.tabBarWeb,
+          { backgroundColor: colors.tabBarBg, borderTopColor: colors.border },
+        ]}
+      >
         <Animated.View
           style={[
             styles.tabIndicator,
+            isWeb && styles.tabIndicatorWeb,
             {
               backgroundColor: colors.accent,
               transform: [{
@@ -598,6 +1140,7 @@ export default function App() {
             <Text
               style={[
                 styles.tabText,
+                isWeb && styles.tabTextWeb,
                 { color: activeTab === tab ? colors.text : colors.mutedText },
               ]}
             >
@@ -613,6 +1156,9 @@ export default function App() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   mainContent: { flex: 1 },
+  webMainScrollContent: {
+    paddingBottom: 40,
+  },
   pagerContainer: { flex: 1 },
   pager: { flex: 1 },
   header: {
@@ -623,6 +1169,14 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
+  },
+  headerWeb: {
+    width: '100%',
+    maxWidth: 1240,
+    alignSelf: 'center',
+    marginTop: 20,
+    borderWidth: 1,
+    borderRadius: 24,
   },
   headerBrand: {
     flexDirection: 'row',
@@ -654,10 +1208,77 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
+  webHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  webHeaderButton: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  webHeaderButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  webThemeSwitch: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  webThemeSwitchLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+  },
+  webThemeSwitchTrack: {
+    width: 38,
+    height: 20,
+    borderRadius: 999,
+    padding: 2,
+    justifyContent: 'center',
+  },
+  webThemeSwitchThumb: {
+    width: 16,
+    height: 16,
+    borderRadius: 999,
+  },
+  webBurgerButton: {
+    borderWidth: 1,
+    borderRadius: 999,
+    width: 46,
+    height: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  webBurgerIcon: {
+    width: 16,
+    gap: 3,
+  },
+  webBurgerLine: {
+    height: 2,
+    borderRadius: 999,
+  },
   content: {
     padding: 16,
     width: '100%',
     flex: 1,
+  },
+  contentWeb: {
+    alignSelf: 'center',
+    maxWidth: 1180,
+    width: '100%',
+    paddingTop: 0,
+  },
+  contentWebLoggedIn: {
+    maxWidth: '100%',
+    padding: 0,
   },
   page: {
     flex: 1,
@@ -665,9 +1286,12 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     flexDirection: 'row',
-    height: 84,
+    height: 100,
     bottom: 0,
     borderTopWidth: 1,
+  },
+  tabBarWeb: {
+    display: 'none',
   },
   tabButton: {
     flex: 1,
@@ -678,19 +1302,289 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.7,
-    marginBottom: 35,
+    marginBottom: 50,
+  },
+  tabTextWeb: {
+    marginBottom: 0,
   },
   tabIndicator: {
     position: 'absolute',
-    bottom: 40,
+    bottom: 45,
     height: 4,
     width: '25%',
     borderRadius: 999,
+  },
+  tabIndicatorWeb: {
+    display: 'none',
+  },
+  webBackdropTop: {
+    position: 'absolute',
+    width: 520,
+    height: 520,
+    borderRadius: 999,
+    top: -120,
+    left: '8%',
+  },
+  webBackdropSide: {
+    position: 'absolute',
+    width: 420,
+    height: 420,
+    borderRadius: 999,
+    right: -80,
+    top: '26%',
+  },
+  webBackdropGrid: {
+    position: 'absolute',
+    width: '88%',
+    height: '88%',
+    alignSelf: 'center',
+    top: '7%',
+    borderWidth: 1,
+    borderRadius: 36,
+  },
+  webHero: {
+    width: '100%',
+    maxWidth: 1240,
+    alignSelf: 'center',
+    borderWidth: 1,
+    borderRadius: 28,
+    marginTop: 18,
+    marginBottom: 18,
+    padding: 28,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'stretch',
+    gap: 18,
+  },
+  webHeroCopy: {
+    flex: 1.1,
+    justifyContent: 'center',
+  },
+  webEyebrow: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    marginBottom: 10,
+    textTransform: 'uppercase',
+  },
+  webTitle: {
+    fontSize: 38,
+    lineHeight: 46,
+    fontWeight: '800',
+    marginBottom: 12,
+  },
+  webDescription: {
+    fontSize: 15,
+    lineHeight: 24,
+    maxWidth: 520,
+  },
+  webStatsRow: {
+    flex: 1,
+    justifyContent: 'space-between',
+    gap: 14,
+  },
+  webStatCard: {
+    borderWidth: 1,
+    borderRadius: 22,
+    padding: 18,
+    minHeight: 96,
+    justifyContent: 'center',
+  },
+  webStatValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    marginBottom: 6,
+  },
+  webStatLabel: {
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  webTabsWrap: {
+    display: 'none',
+  },
+  webTabPill: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  webTabText: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  webAppShell: {
+    width: '100%',
+    maxWidth: 1240,
+    alignSelf: 'center',
+    gap: 16,
+  },
+  webMenuPanel: {
+    position: 'absolute',
+    top: 108,
+    right: '50%',
+    marginRight: -620,
+    width: 320,
+    borderWidth: 1,
+    borderRadius: 24,
+    padding: 14,
+    gap: 10,
+    zIndex: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.18,
+    shadowRadius: 26,
+  },
+  webMenuBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 15,
+  },
+  webDrawerItem: {
+    borderWidth: 1,
+    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+  },
+  webDrawerThemeWrap: {
+    borderWidth: 1,
+    borderRadius: 18,
+    padding: 10,
+  },
+  webDrawerItemText: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  webAppContent: {
+    flex: 1,
+    minWidth: 0,
+  },
+  webPortalHeader: {
+    marginTop: 20,
+    borderWidth: 1,
+    borderRadius: 24,
+    paddingVertical: 22,
+    paddingHorizontal: 24,
+    marginBottom: 14,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 16,
+  },
+  webPortalEyebrow: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    marginBottom: 8,
+  },
+  webPortalTitle: {
+    fontSize: 28,
+    lineHeight: 36,
+    fontWeight: '800',
+    maxWidth: 760,
+  },
+  webPortalBadge: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  webPortalBadgeText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  webContentFrame: {
+    borderWidth: 1,
+    borderRadius: 28,
+    padding: 22,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.12,
+    shadowRadius: 26,
   },
   modalOverlay: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
+  },
+  modalBackdropHalo: {
+    position: 'absolute',
+    width: 360,
+    height: 360,
+    borderRadius: 999,
+    borderWidth: 1,
+    top: '10%',
+    left: -110,
+  },
+  modalBackdropHaloSmall: {
+    position: 'absolute',
+    width: 190,
+    height: 190,
+    borderRadius: 999,
+    borderWidth: 1,
+    bottom: '18%',
+    right: -20,
+  },
+  modalBackdropGrid: {
+    position: 'absolute',
+    width: '120%',
+    height: '120%',
+    borderWidth: 1,
+    borderRadius: 28,
+    transform: [{ rotate: '-8deg' }],
+  },
+  modalBackdropBeam: {
+    position: 'absolute',
+    width: 420,
+    height: 120,
+    borderRadius: 999,
+    top: '28%',
+    left: -80,
+    transform: [{ rotate: '-24deg' }],
+  },
+  modalBackdropGlow: {
+    position: 'absolute',
+    width: 280,
+    height: 280,
+    borderRadius: 999,
+    top: '16%',
+    right: -80,
+  },
+  modalBackdropAccent: {
+    position: 'absolute',
+    width: 220,
+    height: 220,
+    borderRadius: 999,
+    bottom: '14%',
+    left: -60,
+  },
+  modalBackdropLineOne: {
+    position: 'absolute',
+    width: 280,
+    height: 2,
+    borderRadius: 999,
+    top: '24%',
+    right: -30,
+    transform: [{ rotate: '35deg' }],
+  },
+  modalBackdropLineTwo: {
+    position: 'absolute',
+    width: 180,
+    height: 2,
+    borderRadius: 999,
+    bottom: '26%',
+    left: -10,
+    transform: [{ rotate: '-32deg' }],
+  },
+  modalBackdropOrb: {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    borderRadius: 999,
+    top: '42%',
+    right: 24,
   },
   modalCard: {
     width: '88%',
@@ -698,17 +1592,78 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
   },
+  modalCardWeb: {
+    width: '100%',
+    maxWidth: 520,
+    paddingVertical: 28,
+    paddingHorizontal: 32,
+    borderRadius: 28,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 0.22,
+    shadowRadius: 30,
+  },
+  modalCloseButton: {
+    alignSelf: 'flex-end',
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    marginBottom: 12,
+  },
+  modalCloseButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  modalEyebrow: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
   modalTitle: {
     fontSize: 28,
     textAlign: 'center',
     marginBottom: 20,
     fontFamily: 'ElectroFont1',
   },
+  modalTitleWeb: {
+    fontSize: 34,
+    marginBottom: 12,
+  },
+  modalIntro: {
+    textAlign: 'center',
+    fontSize: 14,
+    lineHeight: 22,
+    marginBottom: 22,
+  },
   inputModern: {
     marginBottom: 10,
     padding: 12,
     borderRadius: 10,
     borderWidth: 1,
+  },
+  passwordInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 10,
+    marginBottom: 10,
+    paddingLeft: 12,
+  },
+  passwordInputField: {
+    flex: 1,
+    paddingVertical: 12,
+  },
+  passwordToggle: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  passwordToggleText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   loginButton: {
     backgroundColor: '#FFD700',

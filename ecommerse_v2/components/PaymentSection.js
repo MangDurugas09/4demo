@@ -3,14 +3,14 @@ import {
   StyleSheet,
   View,
   Text,
-  ScrollView,
   TouchableOpacity,
   Image,
   Alert,
-  Linking,
+  Platform,
   Animated,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import axios from 'axios';
 
 export default function PaymentSection({ colors, apiBaseUrl, user, isActive, onScroll }) {
@@ -18,6 +18,7 @@ export default function PaymentSection({ colors, apiBaseUrl, user, isActive, onS
   const [paymentData, setPaymentData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [downloadingQr, setDownloadingQr] = useState(false);
   const [showRecentPayments, setShowRecentPayments] = useState(false);
   const scrollRef = useRef(null);
   const apiHeaders = { headers: { 'ngrok-skip-browser-warning': 'true' } };
@@ -124,12 +125,51 @@ export default function PaymentSection({ colors, apiBaseUrl, user, isActive, onS
       return;
     }
 
+    const fileName = `electripay-qr-${Date.now()}.png`;
+    const tempFileUri = `${FileSystem.cacheDirectory}${fileName}`;
+
     try {
-      await Linking.openURL(qrCodeUrl);
-      Alert.alert('QR Opened', 'The QR image opened in your browser. You can now save or download it there.');
+      setDownloadingQr(true);
+      const downloadResult = await FileSystem.downloadAsync(qrCodeUrl, tempFileUri);
+
+      if (Platform.OS === 'android' && FileSystem.StorageAccessFramework) {
+        const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+
+        if (!permissions.granted) {
+          Alert.alert('Download Cancelled', 'Folder access was not granted, so the QR code was not saved.');
+          return;
+        }
+
+        const fileBase64 = await FileSystem.readAsStringAsync(downloadResult.uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+
+        const destinationUri = await FileSystem.StorageAccessFramework.createFileAsync(
+          permissions.directoryUri,
+          fileName,
+          'image/png'
+        );
+
+        await FileSystem.writeAsStringAsync(destinationUri, fileBase64, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+
+        Alert.alert('QR Saved', 'The QR code has been downloaded to the folder you selected.');
+        return;
+      }
+
+      const savedUri = `${FileSystem.documentDirectory}${fileName}`;
+      await FileSystem.copyAsync({
+        from: downloadResult.uri,
+        to: savedUri,
+      });
+
+      Alert.alert('QR Saved', `The QR code was saved inside the app files:\n${savedUri}`);
     } catch (error) {
-      console.error('Error opening QR code:', error);
-      Alert.alert('Error', 'Failed to open the QR code');
+      console.error('Error downloading QR code:', error);
+      Alert.alert('Error', 'Failed to download the QR code');
+    } finally {
+      setDownloadingQr(false);
     }
   };
 
@@ -183,10 +223,13 @@ export default function PaymentSection({ colors, apiBaseUrl, user, isActive, onS
           style={styles.qr}
         />
         <TouchableOpacity
-          style={[styles.button, { backgroundColor: colors.accent }]}
+          style={[styles.button, { backgroundColor: colors.accent, opacity: downloadingQr ? 0.7 : 1 }]}
           onPress={handleDownloadQr}
+          disabled={downloadingQr}
         >
-          <Text style={{ color: colors.mode === 'dark' ? '#0b1020' : '#ffffff', fontWeight: 'bold' }}>Download QR Code</Text>
+          <Text style={{ color: colors.mode === 'dark' ? '#0b1020' : '#ffffff', fontWeight: 'bold' }}>
+            {downloadingQr ? 'Downloading...' : 'Download QR Code'}
+          </Text>
         </TouchableOpacity>
       </View>
 
