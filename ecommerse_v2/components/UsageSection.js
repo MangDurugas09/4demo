@@ -7,16 +7,26 @@ export default function UsageSection({ colors, apiBaseUrl, user, isActive, onScr
   const [loading, setLoading] = useState(true);
   const [showAllMonths, setShowAllMonths] = useState(false);
   const scrollRef = useRef(null);
+  const apiHeaders = { headers: { 'ngrok-skip-browser-warning': 'true' } };
 
   useEffect(() => {
     const fetchUsage = async () => {
-      if (!user?._id) {
+      if (!apiBaseUrl || !user?._id) {
         setLoading(false);
         return;
       }
 
       try {
-        const response = await axios.get(`${apiBaseUrl}/users/${user._id}/usage`);
+        const response = await axios.get(`${apiBaseUrl}/users/${user._id}/usage`, apiHeaders);
+        if (
+          typeof response.data === 'string' &&
+          (response.data.startsWith('Tunnel') ||
+            response.data.includes('ngrok') ||
+            response.data.startsWith('<!DOCTYPE') ||
+            response.data.startsWith('<html'))
+        ) {
+          throw new Error('Tunnel is inactive or API URL is stale. Start a fresh tunnel and reload the app.');
+        }
         setUsageData(response.data);
       } catch (error) {
         console.error('Error fetching usage:', error);
@@ -37,7 +47,7 @@ export default function UsageSection({ colors, apiBaseUrl, user, isActive, onScr
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <Text style={{ color: colors.white }}>Loading usage data...</Text>
+        <Text style={{ color: colors.text }}>Loading usage data...</Text>
       </View>
     );
   }
@@ -45,7 +55,7 @@ export default function UsageSection({ colors, apiBaseUrl, user, isActive, onScr
   if (!user?._id || !usageData) {
     return (
       <View style={styles.loadingContainer}>
-        <Text style={{ color: colors.white }}>Log in to view usage data.</Text>
+        <Text style={{ color: colors.text }}>Log in to view usage data.</Text>
       </View>
     );
   }
@@ -66,8 +76,8 @@ export default function UsageSection({ colors, apiBaseUrl, user, isActive, onScr
       onScroll={onScroll}
       scrollEventThrottle={16}
     >
-      <View style={[styles.card, { backgroundColor: colors.primary, opacity: 0.95 }]}>
-        <Text style={[styles.cardTitle, { color: colors.darkBg }]}>Weekly Usage Pattern</Text>
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Text style={[styles.cardTitle, { color: colors.text }]}>Weekly Usage Pattern</Text>
         <View style={styles.chartContainer}>
           {weekly.map((item) => (
             <View key={item.day} style={styles.barWrapper}>
@@ -80,36 +90,36 @@ export default function UsageSection({ colors, apiBaseUrl, user, isActive, onScr
                   },
                 ]}
               />
-              <Text style={[styles.barLabel, { color: colors.darkBg }]}>{item.day}</Text>
-              <Text style={[styles.barValue, { color: colors.darkBg }]}>{item.usage}</Text>
+              <Text style={[styles.barLabel, { color: colors.text }]}>{item.day}</Text>
+              <Text style={[styles.barValue, { color: colors.mutedText }]}>{item.usage}</Text>
             </View>
           ))}
         </View>
       </View>
 
-      <View style={[styles.card, { backgroundColor: colors.darkBlue }]}>
-        <Text style={[styles.cardTitle, { color: colors.white }]}>Current Week Overview</Text>
+      <View style={[styles.card, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+        <Text style={[styles.cardTitle, { color: colors.text }]}>Current Week Overview</Text>
         <View style={styles.statsGrid}>
           <View style={styles.statsItem}>
-            <Text style={[styles.statsLabel, { color: colors.white }]}>Total Usage</Text>
+            <Text style={[styles.statsLabel, { color: colors.mutedText }]}>Total Usage</Text>
             <Text style={[styles.statsValue, { color: colors.accent }]}>
               {usageData.summary.totalUsage} kWh
             </Text>
           </View>
           <View style={styles.statsItem}>
-            <Text style={[styles.statsLabel, { color: colors.white }]}>Daily Avg</Text>
+            <Text style={[styles.statsLabel, { color: colors.mutedText }]}>Daily Avg</Text>
             <Text style={[styles.statsValue, { color: colors.accent }]}>
               {usageData.summary.dailyAverage} kWh
             </Text>
           </View>
           <View style={styles.statsItem}>
-            <Text style={[styles.statsLabel, { color: colors.white }]}>Peak Day</Text>
+            <Text style={[styles.statsLabel, { color: colors.mutedText }]}>Peak Day</Text>
             <Text style={[styles.statsValue, { color: colors.accent }]}>
               {usageData.summary.peakDay.day} ({usageData.summary.peakDay.usage})
             </Text>
           </View>
           <View style={styles.statsItem}>
-            <Text style={[styles.statsLabel, { color: colors.white }]}>Low Day</Text>
+            <Text style={[styles.statsLabel, { color: colors.mutedText }]}>Low Day</Text>
             <Text style={[styles.statsValue, { color: colors.accent }]}>
               {usageData.summary.lowDay.day} ({usageData.summary.lowDay.usage})
             </Text>
@@ -117,19 +127,19 @@ export default function UsageSection({ colors, apiBaseUrl, user, isActive, onScr
         </View>
       </View>
 
-      <View style={[styles.card, { backgroundColor: colors.primary, opacity: 0.95 }]}>
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.headerRow}>
-          <Text style={[styles.cardTitle, { color: colors.darkBg }]}>Monthly Comparison</Text>
-          <TouchableOpacity style={styles.button} onPress={() => setShowAllMonths((value) => !value)}>
-            <Text style={styles.buttonText}>{showAllMonths ? 'show less' : 'see more'}</Text>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>Monthly Comparison</Text>
+          <TouchableOpacity style={[styles.button, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]} onPress={() => setShowAllMonths((value) => !value)}>
+            <Text style={[styles.buttonText, { color: colors.text }]}>{showAllMonths ? 'show less' : 'see more'}</Text>
           </TouchableOpacity>
         </View>
 
         {visibleMonthly.map((item) => (
-          <View key={item.month} style={styles.monthRow}>
+          <View key={item.month} style={[styles.monthRow, { borderBottomColor: colors.border }]}>
             <View>
-              <Text style={[styles.monthName, { color: colors.darkBg }]}>{item.month}</Text>
-              <Text style={[styles.monthUsage, { color: colors.darkBg, opacity: 0.7 }]}>
+              <Text style={[styles.monthName, { color: colors.text }]}>{item.month}</Text>
+              <Text style={[styles.monthUsage, { color: colors.mutedText }]}>
                 {item.usage} kWh
               </Text>
             </View>
@@ -140,10 +150,10 @@ export default function UsageSection({ colors, apiBaseUrl, user, isActive, onScr
         ))}
       </View>
 
-      <View style={[styles.card, { backgroundColor: colors.accent, opacity: 0.9 }]}>
-        <Text style={[styles.cardTitle, { color: colors.darkBg }]}>Efficiency Tips</Text>
+      <View style={[styles.card, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+        <Text style={[styles.cardTitle, { color: colors.text }]}>Efficiency Tips</Text>
         {usageData.tips.map((tip) => (
-          <Text key={tip} style={[styles.tipText, { color: colors.darkBg }]}>
+          <Text key={tip} style={[styles.tipText, { color: colors.text }]}>
             - {tip}
           </Text>
         ))}
@@ -159,15 +169,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   button: {
-    padding: 10,
-    borderRadius: 5,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1,
     alignItems: 'center',
   },
   buttonText: {
-    fontWeight: '600',
+    fontWeight: '700',
     textAlign: 'center',
-    color: 'gray',
-    fontSize: 14,
+    fontSize: 12,
   },
   container: {
     flex: 1,
@@ -180,7 +191,8 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   card: {
-    borderRadius: 12,
+    borderRadius: 18,
+    borderWidth: 1,
     padding: 16,
     marginBottom: 16,
     elevation: 3,
@@ -191,8 +203,8 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     flex: 1,
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 17,
+    fontWeight: '800',
     marginBottom: 16,
   },
   chartContainer: {

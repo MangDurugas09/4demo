@@ -41,19 +41,28 @@ export default function Dashboard({ colors, apiBaseUrl, user, isActive, onScroll
       'https://www.pngmart.com/files/23/Profile-PNG-Photo.png',
   });
 
+  const isInvalidApiPayload = (payload) =>
+    typeof payload === 'string' &&
+    (payload.startsWith('Tunnel') || payload.includes('ngrok') || payload.startsWith('<!DOCTYPE') || payload.startsWith('<html'));
+
+  const apiHeaders = { headers: { 'ngrok-skip-browser-warning': 'true' } };
+
   useEffect(() => {
-    if (!user?._id) {
+    if (!apiBaseUrl || !user?._id) {
       setLoading(false);
       return;
     }
 
     const fetchProfile = async () => {
       try {
-        const response = await axios.get(`${apiBaseUrl}/users/${user._id}`);
+        const response = await axios.get(`${apiBaseUrl}/users/${user._id}`, apiHeaders);
+        if (isInvalidApiPayload(response.data)) {
+          throw new Error('Tunnel is inactive or API URL is stale. Start a fresh tunnel and reload the app.');
+        }
         setProfile(mapUserToProfile(response.data));
       } catch (error) {
         console.error('Error fetching profile:', error);
-        Alert.alert('Error', 'Failed to load profile data');
+        Alert.alert('Error', error?.message || 'Failed to load profile data');
       } finally {
         setLoading(false);
       }
@@ -86,13 +95,13 @@ export default function Dashboard({ colors, apiBaseUrl, user, isActive, onScroll
   };
 
   const handleSave = async () => {
-    if (!user?._id) {
+    if (!apiBaseUrl || !user?._id) {
       Alert.alert('Error', 'No user is logged in');
       return;
     }
 
     try {
-      await axios.put(`${apiBaseUrl}/users/${user._id}`, profile);
+      await axios.put(`${apiBaseUrl}/users/${user._id}`, profile, apiHeaders);
       onUserRefresh?.(profile);
       setIsEditing(false);
       Alert.alert('Saved', 'Profile updated successfully!');
@@ -103,7 +112,7 @@ export default function Dashboard({ colors, apiBaseUrl, user, isActive, onScroll
   };
 
   const handleChangePassword = async () => {
-    if (!user?._id) {
+    if (!apiBaseUrl || !user?._id) {
       Alert.alert('Error', 'No user is logged in');
       return;
     }
@@ -122,7 +131,7 @@ export default function Dashboard({ colors, apiBaseUrl, user, isActive, onScroll
       const response = await axios.post(`${apiBaseUrl}/users/${user._id}/change-password`, {
         currentPassword: passwordForm.currentPassword,
         newPassword: passwordForm.newPassword,
-      });
+      }, apiHeaders);
       Alert.alert('Success', response.data.message);
       setPasswordForm({
         currentPassword: '',
@@ -154,10 +163,10 @@ export default function Dashboard({ colors, apiBaseUrl, user, isActive, onScroll
       onScroll={onScroll}
       scrollEventThrottle={16}
     >
-      <View style={[styles.mainContainer, { backgroundColor: colors.primary }]}>
+      <View style={[styles.mainContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.sectionBlock}>
           <View style={styles.profileHeader}>
-            <Text style={[styles.profileTitle, { color: colors.darkBg }]}>Profile</Text>
+            <Text style={[styles.profileTitle, { color: colors.text }]}>Profile</Text>
 
             {!isEditing ? (
               <TouchableOpacity onPress={() => setIsEditing(true)}>
@@ -166,7 +175,7 @@ export default function Dashboard({ colors, apiBaseUrl, user, isActive, onScroll
             ) : (
               <View style={styles.editButtons}>
                 <TouchableOpacity onPress={() => setIsEditing(false)}>
-                  <Text style={[styles.cancelButton, { color: colors.darkBg }]}>Cancel</Text>
+                <Text style={[styles.cancelButton, { color: colors.mutedText }]}>Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={handleSave}>
                   <Text style={[styles.saveButton, { color: colors.accent }]}>Save</Text>
@@ -180,62 +189,83 @@ export default function Dashboard({ colors, apiBaseUrl, user, isActive, onScroll
               <Image source={{ uri: profile.avatar }} style={styles.avatar} />
             </TouchableOpacity>
             {isEditing && (
-              <Text style={{ fontSize: 12, color: colors.darkBg, marginTop: 6 }}>
+              <Text style={{ fontSize: 12, color: colors.mutedText, marginTop: 6 }}>
                 Tap image to change
               </Text>
             )}
           </View>
 
           <View style={styles.profileField}>
-            <Text style={[styles.fieldLabel, { color: colors.darkBg }]}>Name:</Text>
+            <Text style={[styles.fieldLabel, { color: colors.mutedText }]}>Name:</Text>
             {isEditing ? (
-              <TextInput style={styles.input} value={profile.name} onChangeText={(text) => setProfile({ ...profile, name: text })} />
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]}
+                value={profile.name}
+                placeholderTextColor={colors.mutedText}
+                onChangeText={(text) => setProfile({ ...profile, name: text })}
+              />
             ) : (
-              <Text style={[styles.fieldValue, { color: colors.darkBg }]}>{profile.name}</Text>
+              <Text style={[styles.fieldValue, { color: colors.text }]}>{profile.name}</Text>
             )}
           </View>
 
           <View style={styles.profileField}>
-            <Text style={[styles.fieldLabel, { color: colors.darkBg }]}>Email:</Text>
+            <Text style={[styles.fieldLabel, { color: colors.mutedText }]}>Email:</Text>
             {isEditing ? (
-              <TextInput style={styles.input} value={profile.email} onChangeText={(text) => setProfile({ ...profile, email: text })} />
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]}
+                value={profile.email}
+                placeholderTextColor={colors.mutedText}
+                onChangeText={(text) => setProfile({ ...profile, email: text })}
+              />
             ) : (
-              <Text style={[styles.fieldValue, { color: colors.darkBg }]}>{profile.email}</Text>
+              <Text style={[styles.fieldValue, { color: colors.text }]}>{profile.email}</Text>
             )}
           </View>
 
           <View style={styles.profileField}>
-            <Text style={[styles.fieldLabel, { color: colors.darkBg }]}>Address:</Text>
+            <Text style={[styles.fieldLabel, { color: colors.mutedText }]}>Address:</Text>
             {isEditing ? (
-              <TextInput style={styles.input} value={profile.address} onChangeText={(text) => setProfile({ ...profile, address: text })} />
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]}
+                value={profile.address}
+                placeholderTextColor={colors.mutedText}
+                onChangeText={(text) => setProfile({ ...profile, address: text })}
+              />
             ) : (
-              <Text style={[styles.fieldValue, { color: colors.darkBg }]}>{profile.address}</Text>
+              <Text style={[styles.fieldValue, { color: colors.text }]}>{profile.address}</Text>
             )}
           </View>
 
           <View style={styles.profileField}>
-            <Text style={[styles.fieldLabel, { color: colors.darkBg }]}>Contact:</Text>
+            <Text style={[styles.fieldLabel, { color: colors.mutedText }]}>Contact:</Text>
             {isEditing ? (
-              <TextInput style={styles.input} value={profile.contact} onChangeText={(text) => setProfile({ ...profile, contact: text })} keyboardType="phone-pad" />
+              <TextInput
+                style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]}
+                value={profile.contact}
+                placeholderTextColor={colors.mutedText}
+                onChangeText={(text) => setProfile({ ...profile, contact: text })}
+                keyboardType="phone-pad"
+              />
             ) : (
-              <Text style={[styles.fieldValue, { color: colors.darkBg }]}>{profile.contact}</Text>
+              <Text style={[styles.fieldValue, { color: colors.text }]}>{profile.contact}</Text>
             )}
           </View>
         </View>
 
-        <View style={styles.divider} />
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
         <View style={styles.sectionBlock}>
-          <Text style={[styles.sectionTitle, { color: colors.darkBg }]}>Account Session</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Account Session</Text>
           <TouchableOpacity style={[styles.actionButton, { backgroundColor: colors.darkBlue }]} onPress={onLogout}>
             <Text style={{ color: colors.white, fontWeight: 'bold' }}>Logout</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.divider} />
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
         <View style={styles.sectionBlock}>
-          <Text style={[styles.sectionTitle, { color: colors.darkBg }]}>Change Password</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Change Password</Text>
           <TouchableOpacity onPress={() => setShowPasswordForm((value) => !value)}>
             <Text style={[styles.linkText, { color: colors.accent }]}>
               {showPasswordForm ? 'Hide Password Form' : 'Open Password Form'}
@@ -245,22 +275,25 @@ export default function Dashboard({ colors, apiBaseUrl, user, isActive, onScroll
           {showPasswordForm && (
             <View style={styles.passwordForm}>
               <TextInput
-                style={styles.passwordInput}
+                style={[styles.passwordInput, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]}
                 placeholder="Current Password"
+                placeholderTextColor={colors.mutedText}
                 secureTextEntry
                 value={passwordForm.currentPassword}
                 onChangeText={(text) => setPasswordForm({ ...passwordForm, currentPassword: text })}
               />
               <TextInput
-                style={styles.passwordInput}
+                style={[styles.passwordInput, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]}
                 placeholder="New Password"
+                placeholderTextColor={colors.mutedText}
                 secureTextEntry
                 value={passwordForm.newPassword}
                 onChangeText={(text) => setPasswordForm({ ...passwordForm, newPassword: text })}
               />
               <TextInput
-                style={styles.passwordInput}
+                style={[styles.passwordInput, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]}
                 placeholder="Confirm New Password"
+                placeholderTextColor={colors.mutedText}
                 secureTextEntry
                 value={passwordForm.confirmPassword}
                 onChangeText={(text) => setPasswordForm({ ...passwordForm, confirmPassword: text })}
@@ -284,8 +317,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   mainContainer: {
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 18,
     marginBottom: 20,
   },
   sectionBlock: {
@@ -296,19 +330,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 12,
   },
-  profileTitle: { fontSize: 18, fontWeight: 'bold' },
+  profileTitle: { fontSize: 20, fontWeight: '800' },
   editButtons: { flexDirection: 'row' },
   avatarContainer: { alignItems: 'center', marginBottom: 12 },
   avatar: { width: 100, height: 100, borderRadius: 50 },
-  profileField: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  profileField: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   fieldLabel: { width: 70, fontWeight: '600' },
   fieldValue: { flex: 1 },
   input: {
     borderWidth: 1,
-    borderRadius: 5,
-    padding: 6,
+    borderRadius: 10,
+    padding: 10,
     flex: 1,
-    backgroundColor: '#fff',
   },
   divider: {
     height: 1,
@@ -333,7 +366,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   passwordInput: {
-    backgroundColor: '#fff',
+    borderWidth: 1,
     borderRadius: 8,
     padding: 10,
     marginBottom: 10,

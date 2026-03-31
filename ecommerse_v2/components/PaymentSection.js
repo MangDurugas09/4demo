@@ -20,19 +20,27 @@ export default function PaymentSection({ colors, apiBaseUrl, user, isActive, onS
   const [submitting, setSubmitting] = useState(false);
   const [showRecentPayments, setShowRecentPayments] = useState(false);
   const scrollRef = useRef(null);
+  const apiHeaders = { headers: { 'ngrok-skip-browser-warning': 'true' } };
+
+  const isInvalidApiPayload = (payload) =>
+    typeof payload === 'string' &&
+    (payload.startsWith('Tunnel') || payload.includes('ngrok') || payload.startsWith('<!DOCTYPE') || payload.startsWith('<html'));
 
   const fetchPayments = async () => {
-    if (!user?._id) {
+    if (!apiBaseUrl || !user?._id) {
       setLoading(false);
       return;
     }
 
     try {
-      const response = await axios.get(`${apiBaseUrl}/users/${user._id}/payments`);
+      const response = await axios.get(`${apiBaseUrl}/users/${user._id}/payments`, apiHeaders);
+      if (isInvalidApiPayload(response.data)) {
+        throw new Error('Tunnel is inactive or API URL is stale. Start a fresh tunnel and reload the app.');
+      }
       setPaymentData(response.data);
     } catch (error) {
       console.error('Error fetching payment data:', error);
-      Alert.alert('Error', 'Failed to load payment details');
+      Alert.alert('Error', error?.message || 'Failed to load payment details');
     } finally {
       setLoading(false);
     }
@@ -90,12 +98,17 @@ export default function PaymentSection({ colors, apiBaseUrl, user, isActive, onS
       const response = await axios.post(
         `${apiBaseUrl}/users/${user._id}/payments/receipt`,
         { receiptUri: receipt }
+        ,
+        apiHeaders
       );
+      if (isInvalidApiPayload(response.data) || !response.data?.payments) {
+        throw new Error('Unexpected API response. Check tunnel/API base URL and try again.');
+      }
       setPaymentData(response.data.payments);
       Alert.alert('Submitted', 'Receipt sent to admin for verification.');
     } catch (error) {
       console.error('Error submitting receipt:', error);
-      Alert.alert('Error', 'Failed to submit receipt');
+      Alert.alert('Error', error?.message || 'Failed to submit receipt');
     } finally {
       setSubmitting(false);
     }
@@ -123,7 +136,7 @@ export default function PaymentSection({ colors, apiBaseUrl, user, isActive, onS
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <Text style={{ color: colors.white }}>Loading payment details...</Text>
+        <Text style={{ color: colors.text }}>Loading payment details...</Text>
       </View>
     );
   }
@@ -131,7 +144,7 @@ export default function PaymentSection({ colors, apiBaseUrl, user, isActive, onS
   if (!user?._id || !bill) {
     return (
       <View style={styles.loadingContainer}>
-        <Text style={{ color: colors.white }}>Log in to view payment details.</Text>
+        <Text style={{ color: colors.text }}>Log in to view payment details.</Text>
       </View>
     );
   }
@@ -146,23 +159,23 @@ export default function PaymentSection({ colors, apiBaseUrl, user, isActive, onS
       onScroll={onScroll}
       scrollEventThrottle={16}
     >
-      <View style={[styles.card, { backgroundColor: colors.darkBlue }]}>
-        <Text style={[styles.title, { color: colors.white }]}>Current Bill</Text>
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Text style={[styles.title, { color: colors.text }]}>Current Bill</Text>
         <Text style={[styles.amount, { color: colors.accent }]}>PHP {bill.amount}</Text>
-        <Text style={[styles.text, { color: colors.white }]}>Due Date: {bill.dueDate}</Text>
-        <Text style={[styles.text, { color: colors.white }]}>Account #: {bill.accountNumber}</Text>
+        <Text style={[styles.text, { color: colors.text }]}>Due Date: {bill.dueDate}</Text>
+        <Text style={[styles.text, { color: colors.text }]}>Account #: {bill.accountNumber}</Text>
         <Text
           style={[
             styles.status,
-            { color: bill.status === 'Completed' || bill.status === 'Paid' ? 'green' : '#D7263D' },
+            { color: bill.status === 'Completed' || bill.status === 'Paid' ? colors.success : colors.danger },
           ]}
         >
           Status: {bill.status}
         </Text>
       </View>
 
-      <View style={[styles.card, { backgroundColor: colors.primary }]}>
-        <Text style={[styles.title, { color: colors.darkBg }]}>Pay via QR Code</Text>
+      <View style={[styles.card, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+        <Text style={[styles.title, { color: colors.text }]}>Pay via QR Code</Text>
         <Image
           source={{
             uri: qrCodeUrl,
@@ -173,27 +186,27 @@ export default function PaymentSection({ colors, apiBaseUrl, user, isActive, onS
           style={[styles.button, { backgroundColor: colors.accent }]}
           onPress={handleDownloadQr}
         >
-          <Text style={{ color: colors.darkBg, fontWeight: 'bold' }}>Download QR Code</Text>
+          <Text style={{ color: colors.mode === 'dark' ? '#0b1020' : '#ffffff', fontWeight: 'bold' }}>Download QR Code</Text>
         </TouchableOpacity>
       </View>
 
-      <View style={[styles.card, { backgroundColor: colors.primary }]}>
-        <Text style={[styles.title, { color: colors.darkBg }]}>Payment Instructions</Text>
-        <Text style={styles.step}>1. Open GCash, Maya, or your banking app</Text>
-        <Text style={styles.step}>2. Scan the QR code above</Text>
-        <Text style={styles.step}>3. Confirm the amount of PHP {bill.amount}</Text>
-        <Text style={styles.step}>4. Save or screenshot your receipt</Text>
-        <Text style={styles.step}>5. Upload the receipt below for verification</Text>
+      <View style={[styles.card, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+        <Text style={[styles.title, { color: colors.text }]}>Payment Instructions</Text>
+        <Text style={[styles.step, { color: colors.text }]}>1. Open GCash, Maya, or your banking app</Text>
+        <Text style={[styles.step, { color: colors.text }]}>2. Scan the QR code above</Text>
+        <Text style={[styles.step, { color: colors.text }]}>3. Confirm the amount of PHP {bill.amount}</Text>
+        <Text style={[styles.step, { color: colors.text }]}>4. Save or screenshot your receipt</Text>
+        <Text style={[styles.step, { color: colors.text }]}>5. Upload the receipt below for verification</Text>
       </View>
 
-      <View style={[styles.card, { backgroundColor: colors.primary }]}>
-        <Text style={[styles.title, { color: colors.darkBg }]}>Upload Payment Receipt</Text>
+      <View style={[styles.card, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+        <Text style={[styles.title, { color: colors.text }]}>Upload Payment Receipt</Text>
 
         <TouchableOpacity
           style={[styles.uploadButton, { backgroundColor: colors.accent }]}
           onPress={pickReceipt}
         >
-          <Text style={{ color: colors.darkBg, fontWeight: 'bold' }}>Select Receipt Image</Text>
+          <Text style={{ color: colors.mode === 'dark' ? '#0b1020' : '#ffffff', fontWeight: 'bold' }}>Select Receipt Image</Text>
         </TouchableOpacity>
 
         {receipt && <Image source={{ uri: receipt }} style={styles.receiptPreview} />}
@@ -209,32 +222,32 @@ export default function PaymentSection({ colors, apiBaseUrl, user, isActive, onS
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.linkButton} onPress={handleRefresh}>
-          <Text style={[styles.linkText, { color: colors.darkBg }]}>Refresh payment status</Text>
+          <Text style={[styles.linkText, { color: colors.darkBlue }]}>Refresh payment status</Text>
         </TouchableOpacity>
       </View>
 
-      <View style={[styles.card, { backgroundColor: colors.primary }]}>
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <TouchableOpacity
           style={styles.collapseHeader}
           onPress={() => setShowRecentPayments((value) => !value)}
         >
-          <Text style={[styles.title, { color: colors.darkBg, marginBottom: 0 }]}>
+          <Text style={[styles.title, { color: colors.text, marginBottom: 0 }]}>
             Recent Payments
           </Text>
-          <Text style={[styles.collapseIcon, { color: colors.darkBg }]}>
+          <Text style={[styles.collapseIcon, { color: colors.mutedText }]}>
             {showRecentPayments ? 'Hide' : 'Show'}
           </Text>
         </TouchableOpacity>
 
         {showRecentPayments && paymentHistory.map((item) => (
-          <View key={item.id} style={styles.historyItem}>
+          <View key={item.id} style={[styles.historyItem, { borderBottomColor: colors.border }]}>
             <View>
-              <Text style={styles.historyDate}>{item.date}</Text>
-              <Text style={styles.historyStatus}>{item.status}</Text>
-              <Text style={styles.historyMethod}>{item.method}</Text>
+              <Text style={[styles.historyDate, { color: colors.text }]}>{item.date}</Text>
+              <Text style={[styles.historyStatus, { color: colors.success }]}>{item.status}</Text>
+              <Text style={[styles.historyMethod, { color: colors.mutedText }]}>{item.method}</Text>
             </View>
 
-            <Text style={styles.historyAmount}>PHP {item.amount}</Text>
+            <Text style={[styles.historyAmount, { color: colors.text }]}>PHP {item.amount}</Text>
           </View>
         ))}
       </View>
@@ -251,7 +264,8 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   card: {
-    borderRadius: 12,
+    borderRadius: 18,
+    borderWidth: 1,
     padding: 16,
     marginBottom: 16,
     elevation: 3,
@@ -265,7 +279,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
-  title: { fontSize: 16, fontWeight: 'bold', marginBottom: 10 },
+  title: { fontSize: 17, fontWeight: '800', marginBottom: 10 },
   amount: { fontSize: 32, fontWeight: 'bold', marginBottom: 10 },
   text: { fontSize: 14, marginBottom: 4 },
   status: { fontWeight: 'bold', marginTop: 6 },
@@ -280,7 +294,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
   },
-  step: { fontSize: 13, marginBottom: 6, color: '#000' },
+  step: { fontSize: 13, marginBottom: 7, lineHeight: 20 },
   uploadButton: {
     padding: 12,
     borderRadius: 8,
@@ -310,10 +324,11 @@ const styles = StyleSheet.create({
   historyItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
   },
   historyDate: { fontSize: 13, fontWeight: '600' },
-  historyStatus: { fontSize: 11, color: 'green' },
-  historyMethod: { fontSize: 11, color: '#333' },
+  historyStatus: { fontSize: 11 },
+  historyMethod: { fontSize: 11 },
   historyAmount: { fontSize: 14, fontWeight: 'bold' },
 });

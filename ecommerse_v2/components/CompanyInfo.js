@@ -1,17 +1,18 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { StyleSheet, View, Text, ScrollView, Linking, TouchableOpacity, Animated } from 'react-native';
+import { StyleSheet, View, Text, Linking, TouchableOpacity, Animated } from 'react-native';
 import axios from 'axios';
 
 export default function CompanyInfo({ colors, apiBaseUrl, isActive, onScroll }) {
-  const [stats, setStats] = useState({
-    totalUsers: 0,
-  });
+  const [stats, setStats] = useState({ totalUsers: 0 });
   const scrollRef = useRef(null);
+  const apiHeaders = { headers: { 'ngrok-skip-browser-warning': 'true' } };
 
   useEffect(() => {
     const fetchStats = async () => {
+      if (!apiBaseUrl) return;
+
       try {
-        const response = await axios.get(`${apiBaseUrl}/stats/summary`);
+        const response = await axios.get(`${apiBaseUrl}/stats/summary`, apiHeaders);
         setStats(response.data);
       } catch (error) {
         console.error('Error fetching company stats:', error);
@@ -73,98 +74,89 @@ export default function CompanyInfo({ colors, apiBaseUrl, isActive, onScroll }) 
       onScroll={onScroll}
       scrollEventThrottle={16}
     >
-      <View style={[styles.headerCard, { backgroundColor: colors.accent, opacity: 0.95 }]}>
-        <Text style={[styles.companyName, { color: colors.darkBg }]}>{appDetails.name}</Text>
-        <Text style={[styles.tagline, { color: colors.darkBg }]}>{appDetails.tagline}</Text>
+      <View style={[styles.headerCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Text style={[styles.companyName, { color: colors.text }]}>{appDetails.name}</Text>
+        <Text style={[styles.tagline, { color: colors.mutedText }]}>{appDetails.tagline}</Text>
       </View>
 
-      <View style={[styles.card, { backgroundColor: colors.primary, opacity: 0.95 }]}>
-        <Text style={[styles.cardTitle, { color: colors.darkBg }]}>What This Project Offers</Text>
-        <Text style={[styles.cardText, { color: colors.darkBg }]}>
+      <View style={[styles.card, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+        <Text style={[styles.cardTitle, { color: colors.text }]}>What This Project Offers</Text>
+        <Text style={[styles.cardText, { color: colors.text }]}>
           Electripay is a mobile application for customers who want a simpler way to manage electricity billing.
           It combines account details, current bill tracking, usage monitoring, and receipt-based payment submission
           into a single interface.
         </Text>
-        <Text style={[styles.cardText, { color: colors.darkBg, marginTop: 12 }]}>
-          The project is built to help users check their information faster, pay with fewer steps, and understand
-          their recent consumption without relying on paper-only updates.
-        </Text>
       </View>
 
-      <View style={[styles.statsCard, { backgroundColor: colors.darkBlue }]}>
+      <View style={[styles.statsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.statItem}>
           <Text style={[styles.statValue, { color: colors.accent }]}>{stats.totalUsers}</Text>
-          <Text style={[styles.statLabel, { color: colors.white }]}>Registered Users</Text>
+          <Text style={[styles.statLabel, { color: colors.mutedText }]}>Registered Users</Text>
         </View>
         <View style={styles.statItem}>
           <Text style={[styles.statValue, { color: colors.accent }]}>QR Pay</Text>
-          <Text style={[styles.statLabel, { color: colors.white }]}>Fast bill payment access</Text>
+          <Text style={[styles.statLabel, { color: colors.mutedText }]}>Fast bill payment access</Text>
         </View>
         <View style={styles.statItem}>
           <Text style={[styles.statValue, { color: colors.accent }]}>Usage View</Text>
-          <Text style={[styles.statLabel, { color: colors.white }]}>Weekly and monthly tracking</Text>
+          <Text style={[styles.statLabel, { color: colors.mutedText }]}>Weekly and monthly tracking</Text>
         </View>
         <View style={styles.statItem}>
           <Text style={[styles.statValue, { color: colors.accent }]}>Profile Tools</Text>
-          <Text style={[styles.statLabel, { color: colors.white }]}>Account and password controls</Text>
+          <Text style={[styles.statLabel, { color: colors.mutedText }]}>Account and password controls</Text>
         </View>
       </View>
 
-      <View style={[styles.card, { backgroundColor: colors.primary, opacity: 0.95 }]}>
-        <Text style={[styles.cardTitle, { color: colors.darkBg }]}>Core Features</Text>
+      <View style={[styles.card, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+        <Text style={[styles.cardTitle, { color: colors.text }]}>Core Features</Text>
         <View style={styles.featuresGrid}>
           {features.map((feature) => (
-            <View key={feature.title} style={styles.featureBox}>
-              <Text style={[styles.featureTitle, { color: colors.darkBg }]}>{feature.title}</Text>
-              <Text style={[styles.featureDesc, { color: colors.darkBg }]}>{feature.description}</Text>
+            <View key={feature.title} style={[styles.featureBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Text style={[styles.featureTitle, { color: colors.text }]}>{feature.title}</Text>
+              <Text style={[styles.featureDesc, { color: colors.mutedText }]}>{feature.description}</Text>
             </View>
           ))}
         </View>
       </View>
 
-      <View style={[styles.card, { backgroundColor: colors.accent, opacity: 0.9 }]}>
-        <Text style={[styles.cardTitle, { color: colors.darkBg }]}>How It Works</Text>
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Text style={[styles.cardTitle, { color: colors.text }]}>How It Works</Text>
         {workflow.map((step) => (
-          <Text key={step} style={[styles.cardText, { color: colors.darkBg, marginBottom: 8 }]}>
+          <Text key={step} style={[styles.cardText, { color: colors.text, marginBottom: 8 }]}>
             - {step}
           </Text>
         ))}
       </View>
 
-      <View style={[styles.card, { backgroundColor: colors.primary, opacity: 0.95 }]}>
-        <Text style={[styles.cardTitle, { color: colors.darkBg }]}>Why It Matters</Text>
+      <View style={[styles.card, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+        <Text style={[styles.cardTitle, { color: colors.text }]}>Why It Matters</Text>
         {benefits.map((benefit) => (
-          <Text key={benefit} style={[styles.cardText, { color: colors.darkBg, marginBottom: 8 }]}>
+          <Text key={benefit} style={[styles.cardText, { color: colors.text, marginBottom: 8 }]}>
             - {benefit}
           </Text>
         ))}
       </View>
 
-      <View style={[styles.card, { backgroundColor: colors.darkBlue }]}>
-        <Text style={[styles.cardTitle, { color: colors.white }]}>Project Snapshot</Text>
-        <Text style={[styles.commitmentText, { color: colors.white }]}>Audience: {appDetails.audience}</Text>
-        <Text style={[styles.commitmentText, { color: colors.white }]}>Purpose: {appDetails.purpose}</Text>
-        <Text style={[styles.commitmentText, { color: colors.white }]}>Frontend: React Native with Expo</Text>
-        <Text style={[styles.commitmentText, { color: colors.white }]}>Backend: Express API with MongoDB</Text>
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Text style={[styles.cardTitle, { color: colors.text }]}>Project Snapshot</Text>
+        <Text style={[styles.commitmentText, { color: colors.text }]}>Audience: {appDetails.audience}</Text>
+        <Text style={[styles.commitmentText, { color: colors.text }]}>Purpose: {appDetails.purpose}</Text>
+        <Text style={[styles.commitmentText, { color: colors.text }]}>Frontend: React Native with Expo</Text>
+        <Text style={[styles.commitmentText, { color: colors.text }]}>Backend: Express API with MongoDB</Text>
       </View>
 
-      <View style={[styles.card, { backgroundColor: colors.accent, opacity: 0.9 }]}>
-        <Text style={[styles.cardTitle, { color: colors.darkBg }]}>Support and Contact</Text>
+      <View style={[styles.card, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+        <Text style={[styles.cardTitle, { color: colors.text }]}>Support and Contact</Text>
         {contactInfo.map((contact) => (
           <TouchableOpacity
             key={contact.label}
-            style={styles.contactItem}
+            style={[styles.contactItem, { borderBottomColor: colors.border }]}
             onPress={() => contact.link && Linking.openURL(contact.link)}
             disabled={!contact.link}
           >
             <View style={{ flex: 1 }}>
-              <Text style={[styles.contactLabel, { color: colors.darkBg }]}>{contact.label}</Text>
-              <Text
-                style={[
-                  styles.contactValue,
-                  { color: contact.link ? colors.darkBlue : colors.darkBg, fontWeight: contact.link ? '700' : '600' },
-                ]}
-              >
+              <Text style={[styles.contactLabel, { color: colors.mutedText }]}>{contact.label}</Text>
+              <Text style={[styles.contactValue, { color: contact.link ? colors.darkBlue : colors.text }]}>
                 {contact.value}
               </Text>
             </View>
@@ -172,8 +164,8 @@ export default function CompanyInfo({ colors, apiBaseUrl, isActive, onScroll }) 
         ))}
       </View>
 
-      <View style={[styles.footerCard, { backgroundColor: colors.primary, opacity: 0.9 }]}>
-        <Text style={[styles.footerText, { color: colors.darkBg, fontSize: 12 }]}>
+      <View style={[styles.footerCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <Text style={[styles.footerText, { color: colors.mutedText }]}>
           Copyright 2026 Electripay. Built to simplify electricity billing and payment tracking.
         </Text>
       </View>
@@ -187,7 +179,8 @@ const styles = StyleSheet.create({
     paddingBottom: 30,
   },
   headerCard: {
-    borderRadius: 12,
+    borderRadius: 18,
+    borderWidth: 1,
     padding: 24,
     marginBottom: 16,
     alignItems: 'center',
@@ -198,8 +191,8 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
   },
   companyName: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 30,
+    fontWeight: '800',
     marginBottom: 8,
   },
   tagline: {
@@ -207,7 +200,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   card: {
-    borderRadius: 12,
+    borderRadius: 18,
+    borderWidth: 1,
     padding: 16,
     marginBottom: 16,
     elevation: 2,
@@ -217,8 +211,8 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
   },
   cardTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 17,
+    fontWeight: '800',
     marginBottom: 12,
   },
   cardText: {
@@ -226,7 +220,8 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   statsCard: {
-    borderRadius: 12,
+    borderRadius: 18,
+    borderWidth: 1,
     padding: 16,
     marginBottom: 16,
     flexDirection: 'row',
@@ -261,7 +256,7 @@ const styles = StyleSheet.create({
   },
   featureBox: {
     width: '48%',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
     borderRadius: 8,
     padding: 12,
     marginBottom: 12,
@@ -280,7 +275,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(11, 30, 46, 0.1)',
   },
   contactLabel: {
     fontSize: 11,
@@ -289,6 +283,7 @@ const styles = StyleSheet.create({
   },
   contactValue: {
     fontSize: 12,
+    fontWeight: '700',
   },
   commitmentText: {
     fontSize: 12,
@@ -296,7 +291,8 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   footerCard: {
-    borderRadius: 12,
+    borderRadius: 18,
+    borderWidth: 1,
     padding: 16,
     alignItems: 'center',
     elevation: 1,
@@ -307,5 +303,6 @@ const styles = StyleSheet.create({
   },
   footerText: {
     textAlign: 'center',
+    fontSize: 12,
   },
 });
