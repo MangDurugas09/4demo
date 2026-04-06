@@ -428,6 +428,7 @@ const Navbar = ({
             {isMobile && isLoggedIn && renderBurgerMenu()}
             {isMobile && !isLoggedIn && (
               <View style={styles.mobileAuthButtons}>
+                {renderThemeToggle()}
                 <TouchableOpacity
                   onPress={() => onOpenAuth('login')}
                   style={[styles.mobileAuthIconButton, { borderColor: colors.accent, borderWidth: 1.5 }]}
