@@ -177,16 +177,16 @@ const Navbar = ({
         style={styles.logo}
         resizeMode="contain"
       />
-      {!isMobile && (
-        <View style={styles.brandRow}>
-          <Text style={[styles.brandText, { color: colors.text }]}>ELECTRIPAY</Text>
-          {!isLoggedIn && (
-            <Text style={[styles.brandSubtext, { color: colors.mutedText }]}>
-              Track usage, pay bills, and manage your account in one place.
-            </Text>
-          )}
-        </View>
-      )}
+      <View style={styles.brandRow}>
+        <Text style={[styles.brandText, isMobile && styles.brandTextMobile, { color: colors.text }]}>
+          ELECTRIPAY
+        </Text>
+        {!isMobile && !isLoggedIn && (
+          <Text style={[styles.brandSubtext, { color: colors.mutedText }]}>
+            Track usage, pay bills, and manage your account in one place.
+          </Text>
+        )}
+      </View>
     </TouchableOpacity>
   );
 
@@ -505,6 +505,10 @@ const styles = StyleSheet.create({
     fontSize: 30,
     letterSpacing: 0.8,
     lineHeight: 34,
+  },
+  brandTextMobile: {
+    fontSize: 22,
+    lineHeight: 26,
   },
   brandSubtext: {
     fontSize: 16,
