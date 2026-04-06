@@ -9,8 +9,8 @@ import {
   Modal,
   TextInput,
   Animated,
-  Dimensions,
-  Alert,
+  Easing,
+  useWindowDimensions,
   Image,
   Platform,
 } from 'react-native';
@@ -19,26 +19,60 @@ import Dashboard from './components/Dashboard';
 import UsageSection from './components/UsageSection';
 import PaymentSection from './components/PaymentSection';
 import CompanyInfo from './components/CompanyInfo';
+import MaintenanceSection from './components/MaintenanceSection';
+import Navbar from './components/Navbar';
 import { useFonts } from 'expo-font';
+import FontAwesome from 'react-native-vector-icons/FontAwesome6';
+import { showClientAlert } from './utils/showClientAlert';
+
+// Import background image for web
+const backgroundImageUri = require('./assets/electripay-bg.jpg');
+const backgroundImageLightUri = require('./assets/electripay-bckgrd.png');
 
 const IS_WEB = Platform.OS === 'web';
 
 const API_CONFIG = {
-  local: 'http://10.0.78.46:5000',
-  tunnel: 'https://4b94-180-190-124-182.ngrok-free.app',
+  // Tunnel URL - update this with your actual ngrok URL or use environment variable
+  tunnel: process.env.EXPO_PUBLIC_NGROK_URL || 'https://your-ngrok-url.ngrok.io',
+  // Local development URLs
+  local: 'http://localhost:5000',
+  machineIP: 'http://10.0.78.46:5000',  // For phones on same network
+  localAndroid: 'http://10.0.2.2:5000',
 };
 
-const API_CANDIDATES = [
-  API_CONFIG.tunnel,
-  process.env.EXPO_PUBLIC_API_URL,
-  API_CONFIG.local,
-  'http://127.0.0.1:5000',
-  'http://localhost:5000',
-  'http://10.0.2.2:5000',
-]
-  .map((url) => (typeof url === 'string' ? url.trim().replace(/\/+$/, '') : ''))
-  .filter(Boolean)
-  .filter((url, index, arr) => arr.indexOf(url) === index);
+// API_CANDIDATES prioritized by environment and availability
+const getApiCandidates = () => {
+  const candidates = [
+    // First try environment variable (most reliable for production)
+    process.env.EXPO_PUBLIC_API_URL,
+  ];
+
+  // Prioritize based on platform
+  if (IS_WEB) {
+    // For web: try localhost first
+    candidates.push(API_CONFIG.local);
+    candidates.push(API_CONFIG.machineIP);
+  } else {
+    // For phones: try machine IP first
+    candidates.push(API_CONFIG.machineIP);
+    candidates.push(API_CONFIG.local);
+  }
+
+  // Add other options
+  candidates.push(API_CONFIG.localAndroid);
+  
+  // Add ngrok tunnel if not placeholder
+  if (API_CONFIG.tunnel && !API_CONFIG.tunnel.includes('your-ngrok-url')) {
+    candidates.push(API_CONFIG.tunnel);
+  }
+
+  return candidates
+    .map((url) => (typeof url === 'string' ? url.trim().replace(/\/+$/, '') : ''))
+    .filter(Boolean)
+    .filter((url, index, arr) => arr.indexOf(url) === index);
+};
+
+const API_CANDIDATES = getApiCandidates();
 
 const NGROK_HEADERS = {
   'ngrok-skip-browser-warning': 'true',
@@ -119,6 +153,8 @@ export default function App() {
   const [signupForm, setSignupForm] = useState(emptySignupForm);
   const [showSignupPassword, setShowSignupPassword] = useState(false);
   const [showSignupConfirmPassword, setShowSignupConfirmPassword] = useState(false);
+  const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
   const [forgotForm, setForgotForm] = useState(emptyForgotForm);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showForgotConfirmPassword, setShowForgotConfirmPassword] = useState(false);
@@ -128,6 +164,7 @@ export default function App() {
   const [isResolvingApi, setIsResolvingApi] = useState(true);
   const [themeMode, setThemeMode] = useState('dark');
   const [webMenuOpen, setWebMenuOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const tabIndicatorAnim = useRef(new Animated.Value(0)).current;
   const modalTranslateY = useRef(new Animated.Value(70)).current;
   const modalOpacity = useRef(new Animated.Value(0)).current;
@@ -135,12 +172,14 @@ export default function App() {
   const webMenuOpacity = useRef(new Animated.Value(0)).current;
   const webContentTranslateY = useRef(new Animated.Value(18)).current;
   const webContentOpacity = useRef(new Animated.Value(0)).current;
+  const backgroundFadeAnim = useRef(new Animated.Value(themeMode === 'light' ? 1 : 0)).current;
   const pagerRef = useRef(null);
   const colors = THEMES[themeMode];
+  const { width: screenWidth } = useWindowDimensions();
   const isWeb = IS_WEB;
+  const isLaptopWeb = isWeb && screenWidth >= 1024;
 
-  const tabs = ['company', 'payment', 'dashboard', 'profile'];
-  const screenWidth = Dimensions.get('window').width;
+  const tabs = ['company', 'payment', 'dashboard', 'profile', 'maintenance'];
   const tabWidth = screenWidth / tabs.length;
   const pageWidth = isWeb ? Math.min(screenWidth, 1240) : screenWidth;
   const webHighlights = [
@@ -148,6 +187,28 @@ export default function App() {
     { value: 'QR Payments', label: 'Pay in seconds and keep proof in one place' },
     { value: 'Usage Trends', label: 'Spot patterns before the next billing cycle' },
   ];
+  const getContentGlassStyle = (variant = 'base') => {
+    const darkMode = colors.mode === 'dark';
+    const isStrong = variant === 'strong';
+    const bg = darkMode
+      ? isStrong
+        ? 'rgba(15, 23, 42, 0.38)'
+        : 'rgba(15, 23, 42, 0.26)'
+      : isStrong
+        ? 'rgba(255, 255, 255, 0.5)'
+        : 'rgba(255, 255, 255, 0.34)';
+
+    return {
+      backgroundColor: bg,
+      borderColor: darkMode ? 'rgba(148, 163, 184, 0.4)' : 'rgba(255, 255, 255, 0.85)',
+      ...(Platform.OS === 'web'
+        ? {
+            backdropFilter: 'blur(18px) saturate(145%)',
+            WebkitBackdropFilter: 'blur(18px) saturate(145%)',
+          }
+        : {}),
+    };
+  };
 
   const resetAuthFields = () => {
     setUsername('');
@@ -156,6 +217,8 @@ export default function App() {
     setSignupForm(emptySignupForm);
     setShowSignupPassword(false);
     setShowSignupConfirmPassword(false);
+    setHasAcceptedTerms(false);
+    setShowTermsModal(false);
     setForgotForm(emptyForgotForm);
     setShowForgotPassword(false);
     setShowForgotConfirmPassword(false);
@@ -174,32 +237,63 @@ export default function App() {
     }
   };
 
+  const parseApiResponse = async (response) => {
+    const rawText = await response.text();
+
+    if (!rawText) {
+      return {};
+    }
+
+    try {
+      return JSON.parse(rawText);
+    } catch (error) {
+      if (rawText.startsWith('Tunnel') || rawText.includes('ngrok')) {
+        throw new Error('The ngrok tunnel is inactive or showing a tunnel warning page. Start a fresh tunnel and update EXPO_PUBLIC_API_URL (or API_CONFIG.tunnel) in App.js.');
+      }
+
+      if (rawText.startsWith('<!DOCTYPE') || rawText.startsWith('<html')) {
+        throw new Error('The server returned an HTML page instead of API JSON. Check the backend API base URL in App.js.');
+      }
+
+      throw new Error(`Unexpected server response: ${rawText.slice(0, 120)}`);
+    }
+  };
+
   const resolveApiUrl = async () => {
     setIsResolvingApi(true);
 
     for (const candidate of API_CANDIDATES) {
       try {
+        console.log(`🔍 Trying API candidate: ${candidate}`);
         const healthResponse = await fetchWithTimeout(
           `${candidate}/health`,
           { headers: NGROK_HEADERS },
           4500
         );
 
+        console.log(`✅ Got response from ${candidate}:`, healthResponse.status);
+
         if (!healthResponse.ok) {
+          console.log(`❌ Response not OK for ${candidate}`);
           continue;
         }
 
         const parsed = await parseApiResponse(healthResponse);
+        console.log(`📊 Parsed response:`, parsed);
+        
         if (parsed?.ok) {
+          console.log(`🎉 Found working API: ${candidate}`);
           setApiUrl(candidate);
           setIsResolvingApi(false);
           return candidate;
         }
       } catch (error) {
+        console.error(`❌ Error trying ${candidate}:`, error.message);
         continue;
       }
     }
 
+    console.error('❌ No API candidate worked');
     setApiUrl('');
     setIsResolvingApi(false);
     return '';
@@ -286,6 +380,15 @@ export default function App() {
   }, [isWeb, webMenuOpen, webMenuOpacity, webMenuTranslateX]);
 
   useEffect(() => {
+    Animated.timing(backgroundFadeAnim, {
+      toValue: themeMode === 'light' ? 1 : 0,
+      duration: 200,
+      easing: Easing.inOut(Easing.quad),
+      useNativeDriver: true,
+    }).start();
+  }, [backgroundFadeAnim, themeMode]);
+
+  useEffect(() => {
     if (!isWeb || !isLoggedIn) {
       return;
     }
@@ -311,28 +414,6 @@ export default function App() {
     return null;
   }
 
-  const parseApiResponse = async (response) => {
-    const rawText = await response.text();
-
-    if (!rawText) {
-      return {};
-    }
-
-    try {
-      return JSON.parse(rawText);
-    } catch (error) {
-      if (rawText.startsWith('Tunnel') || rawText.includes('ngrok')) {
-        throw new Error('The ngrok tunnel is inactive or showing a tunnel warning page. Start a fresh tunnel and update EXPO_PUBLIC_API_URL (or API_CONFIG.tunnel) in App.js.');
-      }
-
-      if (rawText.startsWith('<!DOCTYPE') || rawText.startsWith('<html')) {
-        throw new Error('The server returned an HTML page instead of API JSON. Check the backend API base URL in App.js.');
-      }
-
-      throw new Error(`Unexpected server response: ${rawText.slice(0, 120)}`);
-    }
-  };
-
   const switchAuthMode = (mode) => {
     setAuthMode(mode);
     resetAuthFields();
@@ -342,7 +423,7 @@ export default function App() {
     const resolvedApiUrl = apiUrl || await resolveApiUrl();
 
     if (!resolvedApiUrl) {
-      Alert.alert('Error', 'API server is not reachable yet. Start your backend server and ngrok, then reload the app.');
+      showClientAlert('Error', 'API server is not reachable yet. Start your backend server and ngrok, then reload the app.');
       return;
     }
 
@@ -362,12 +443,12 @@ export default function App() {
         setWebMenuOpen(false);
         if (isWeb) setActiveTab('dashboard');
         switchAuthMode('login');
-        Alert.alert('Success', 'Login successful!');
+        showClientAlert('Success', 'Login successful!');
       } else {
-        Alert.alert('Error', data.message || 'Login failed');
+        showClientAlert('Error', 'Invalid username or password');
       }
     } catch (err) {
-      Alert.alert('Error', err.message || 'Server not reachable');
+      showClientAlert('Error', err.message || 'Server not reachable');
       console.log(err);
     }
   };
@@ -376,7 +457,7 @@ export default function App() {
     const resolvedApiUrl = apiUrl || await resolveApiUrl();
 
     if (!resolvedApiUrl) {
-      Alert.alert('Error', 'API server is not reachable yet. Start your backend server and ngrok, then reload the app.');
+      showClientAlert('Error', 'API server is not reachable yet. Start your backend server and ngrok, then reload the app.');
       return;
     }
 
@@ -388,12 +469,18 @@ export default function App() {
       !signupForm.username ||
       !signupForm.password
     ) {
-      Alert.alert('Error', 'Please complete all sign up fields');
+      showClientAlert('Error', 'Please complete all sign up fields');
       return;
     }
 
     if (signupForm.password !== signupForm.confirmPassword) {
-      Alert.alert('Error', 'Password confirmation does not match');
+      showClientAlert('Error', 'Password confirmation does not match');
+      return;
+    }
+
+    if (!hasAcceptedTerms) {
+      setShowTermsModal(true);
+      showClientAlert('Terms Required', 'Please review and agree to the Terms & Conditions to continue.');
       return;
     }
 
@@ -420,12 +507,12 @@ export default function App() {
         setWebMenuOpen(false);
         if (isWeb) setActiveTab('dashboard');
         switchAuthMode('login');
-        Alert.alert('Success', 'Account created successfully!');
+        showClientAlert('Success', 'Account created successfully!');
       } else {
-        Alert.alert('Error', data.message || 'Sign up failed');
+        showClientAlert('Error', data.message || 'Sign up failed');
       }
     } catch (err) {
-      Alert.alert('Error', err.message || 'Failed to create account');
+      showClientAlert('Error', err.message || 'Failed to create account');
       console.log(err);
     }
   };
@@ -434,22 +521,30 @@ export default function App() {
     const resolvedApiUrl = apiUrl || await resolveApiUrl();
 
     if (!resolvedApiUrl) {
-      Alert.alert('Error', 'API server is not reachable yet. Start your backend server and ngrok, then reload the app.');
+      showClientAlert('Error', 'API server is not reachable yet. Start your backend server and ngrok, then reload the app.');
       return;
     }
+
+    const normalizedForgotForm = {
+      username: forgotForm.username.trim(),
+      email: forgotForm.email.trim().toLowerCase(),
+      contact: forgotForm.contact.replace(/\D/g, ''),
+      newPassword: forgotForm.newPassword,
+      confirmNewPassword: forgotForm.confirmNewPassword,
+    };
 
     if (
-      !forgotForm.username ||
-      !forgotForm.email ||
-      !forgotForm.contact ||
-      !forgotForm.newPassword
+      !normalizedForgotForm.username ||
+      !normalizedForgotForm.email ||
+      !normalizedForgotForm.contact ||
+      !normalizedForgotForm.newPassword
     ) {
-      Alert.alert('Error', 'Please complete all recovery fields');
+      showClientAlert('Error', 'Please complete all recovery fields');
       return;
     }
 
-    if (forgotForm.newPassword !== forgotForm.confirmNewPassword) {
-      Alert.alert('Error', 'New password confirmation does not match');
+    if (normalizedForgotForm.newPassword !== normalizedForgotForm.confirmNewPassword) {
+      showClientAlert('Error', 'New password confirmation does not match');
       return;
     }
 
@@ -458,23 +553,23 @@ export default function App() {
         method: 'POST',
         headers: { ...NGROK_HEADERS, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username: forgotForm.username,
-          email: forgotForm.email,
-          contact: forgotForm.contact,
-          newPassword: forgotForm.newPassword,
+          username: normalizedForgotForm.username,
+          email: normalizedForgotForm.email,
+          contact: normalizedForgotForm.contact,
+          newPassword: normalizedForgotForm.newPassword,
         }),
       });
 
       const data = await parseApiResponse(res);
 
       if (res.ok) {
-        Alert.alert('Success', 'Password reset successful. You can now log in.');
+        showClientAlert('Success', 'Password reset successful. You can now log in.');
         switchAuthMode('login');
       } else {
-        Alert.alert('Error', data.message || 'Password reset failed');
+        showClientAlert('Error', data.message || 'Password reset failed');
       }
     } catch (err) {
-      Alert.alert('Error', err.message || 'Failed to reset password');
+      showClientAlert('Error', err.message || 'Failed to reset password');
       console.log(err);
     }
   };
@@ -577,11 +672,15 @@ export default function App() {
           secureTextEntry={!fieldProps.visible}
           value={fieldProps.value}
           onChangeText={fieldProps.onChangeText}
+          onSubmitEditing={fieldProps.onSubmitEditing}
+          returnKeyType={fieldProps.returnKeyType || 'done'}
         />
         <TouchableOpacity onPress={fieldProps.onToggle} style={styles.passwordToggle}>
-          <Text style={[styles.passwordToggleText, { color: colors.darkBlue }]}>
-            {fieldProps.visible ? 'Hide' : 'Show'}
-          </Text>
+          <FontAwesome
+            name={fieldProps.visible ? 'eye-slash' : 'eye'}
+            size={18}
+            color={colors.darkBlue}
+          />
         </TouchableOpacity>
       </View>
     );
@@ -608,6 +707,37 @@ export default function App() {
             onToggle: () => setShowSignupConfirmPassword((value) => !value),
             onChangeText: (text) => setSignupForm({ ...signupForm, confirmPassword: text }),
           })}
+          <TouchableOpacity
+            style={[styles.termsButton, { borderColor: colors.border, backgroundColor: colors.inputBg }]}
+            onPress={() => setShowTermsModal(true)}
+          >
+            <Text style={[styles.termsButtonText, { color: colors.darkBlue }]}>View Terms & Conditions</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.termsAgreeRow}
+            onPress={() => setHasAcceptedTerms((prev) => !prev)}
+          >
+            <View
+              style={[
+                styles.termsCheckbox,
+                {
+                  borderColor: hasAcceptedTerms ? colors.accent : colors.border,
+                  backgroundColor: hasAcceptedTerms ? colors.accent : 'transparent',
+                },
+              ]}
+            >
+              {hasAcceptedTerms ? (
+                <FontAwesome
+                  name="check"
+                  size={12}
+                  color={colors.mode === 'dark' ? '#0b1020' : '#ffffff'}
+                />
+              ) : null}
+            </View>
+            <Text style={[styles.termsAgreeText, { color: colors.text }]}>
+              I agree to the Terms & Conditions
+            </Text>
+          </TouchableOpacity>
           <TouchableOpacity style={[styles.loginButton, { backgroundColor: colors.accent }]} onPress={handleSignup}>
             <Text style={[styles.loginButtonText, { color: colors.mode === 'dark' ? '#0b1020' : '#ffffff' }]}>Create Account</Text>
           </TouchableOpacity>
@@ -650,13 +780,23 @@ export default function App() {
 
     return (
       <>
-        <TextInput style={themedInputStyle} placeholder="Username" value={username} onChangeText={setUsername} placeholderTextColor={colors.mutedText} autoCapitalize="none" />
+        <TextInput
+          style={themedInputStyle}
+          placeholder="Username"
+          value={username}
+          onChangeText={setUsername}
+          placeholderTextColor={colors.mutedText}
+          autoCapitalize="none"
+          returnKeyType="next"
+        />
         {renderPasswordField({
           placeholder: 'Password',
           value: password,
           visible: showPassword,
           onToggle: () => setShowPassword((value) => !value),
           onChangeText: setPassword,
+          onSubmitEditing: handleLogin,
+          returnKeyType: 'go',
         })}
         <TouchableOpacity style={[styles.loginButton, { backgroundColor: colors.accent }]} onPress={handleLogin}>
           <Text style={[styles.loginButtonText, { color: colors.mode === 'dark' ? '#0b1020' : '#ffffff' }]}>
@@ -721,6 +861,14 @@ export default function App() {
       );
     }
 
+    if (activeTab === 'maintenance') {
+      return (
+        <MaintenanceSection
+          colors={colors}
+        />
+      );
+    }
+
     return (
       <Dashboard
         colors={colors}
@@ -734,33 +882,43 @@ export default function App() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: colors.background },
+        isLaptopWeb && styles.webLaptopScale,
+      ]}
+    >
       <StatusBar
         barStyle={colors.mode === 'dark' ? 'light-content' : 'dark-content'}
         backgroundColor={colors.background}
       />
-      {isWeb && (
-        <>
-          <View
-            style={[
-              styles.webBackdropTop,
-              { backgroundColor: colors.mode === 'dark' ? 'rgba(251, 191, 36, 0.10)' : 'rgba(42, 95, 191, 0.10)' },
-            ]}
-          />
-          <View
-            style={[
-              styles.webBackdropSide,
-              { backgroundColor: colors.mode === 'dark' ? 'rgba(42, 95, 191, 0.18)' : 'rgba(234, 88, 12, 0.10)' },
-            ]}
-          />
-          <View
-            style={[
-              styles.webBackdropGrid,
-              { borderColor: colors.mode === 'dark' ? 'rgba(159, 176, 205, 0.08)' : 'rgba(15, 23, 42, 0.06)' },
-            ]}
-          />
-        </>
-      )}
+      
+      {/* Background Image with Blur - Applied to All Tabs */}
+      <View style={styles.backgroundContainer}>
+        <Image
+          source={backgroundImageUri}
+          style={[
+            styles.backgroundImage,
+            IS_WEB && { filter: 'blur(1px)' }
+          ]}
+        />
+        <Animated.Image
+          source={backgroundImageLightUri}
+          style={[
+            styles.backgroundImage,
+            styles.backgroundImageOverlay,
+            IS_WEB && { filter: 'blur(1px)' },
+            { opacity: backgroundFadeAnim },
+          ]}
+        />
+        <View
+          style={[
+            styles.backgroundOverlay,
+            { backgroundColor: colors.mode === 'dark' ? 'rgba(8, 17, 33, 0.05)' : 'rgba(238, 244, 255, 0.1)' }
+          ]}
+        />
+      </View>
       <Modal visible={showLoginModal && !isLoggedIn} transparent animationType="fade">
         <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
           <View
@@ -826,6 +984,11 @@ export default function App() {
                 borderColor: colors.border,
                 opacity: modalOpacity,
                 transform: [{ translateY: modalTranslateY }],
+                width: isWeb && screenWidth < 480 ? '90%' : undefined,
+                paddingHorizontal: isWeb && screenWidth < 480 ? 20 : undefined,
+                paddingVertical: isWeb && screenWidth < 480 ? 20 : undefined,
+                maxHeight: isWeb && screenWidth < 480 ? '90vh' : undefined,
+                overflow: 'hidden',
               },
             ]}
           >
@@ -834,7 +997,7 @@ export default function App() {
                 onPress={() => setShowLoginModal(false)}
                 style={[styles.modalCloseButton, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}
               >
-                <Text style={[styles.modalCloseButtonText, { color: colors.text }]}>Close</Text>
+                <FontAwesome name="xmark" size={18} color={colors.text} />
               </TouchableOpacity>
             )}
             {isWeb && (
@@ -848,111 +1011,141 @@ export default function App() {
                 Sign in to manage bills, monitor energy usage, and keep payment activity in one dashboard.
               </Text>
             )}
-            {renderAuthContent()}
+            {isWeb && screenWidth < 480 ? (
+              <ScrollView
+                style={styles.modalScrollContent}
+                contentContainerStyle={{ paddingHorizontal: 4, width: '100%' }}
+                showsVerticalScrollIndicator={false}
+                bounces={false}
+              >
+                {renderAuthContent()}
+              </ScrollView>
+            ) : (
+              renderAuthContent()
+            )}
           </Animated.View>
+        </View>
+      </Modal>
+
+      <Modal visible={showTermsModal} transparent animationType="fade">
+        <View style={[styles.termsOverlay, { backgroundColor: colors.overlay }]}>
+          <View style={[styles.termsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={[styles.termsTitle, { color: colors.text }]}>Terms & Conditions</Text>
+            <ScrollView style={styles.termsContent} showsVerticalScrollIndicator={false}>
+              <Text style={[styles.termsText, { color: colors.text }]}>
+                By creating an Electripay account, you agree to provide accurate information, keep your login credentials secure, and use the app responsibly for billing and payment activities only.
+              </Text>
+              <Text style={[styles.termsText, { color: colors.text }]}>
+                Payment submissions may be verified before completion. Any suspicious, false, or abusive use of the platform may result in account restrictions.
+              </Text>
+              <Text style={[styles.termsText, { color: colors.text }]}>
+                You also consent to the processing of your account details for billing support, usage insights, and customer service purposes.
+              </Text>
+            </ScrollView>
+            <View style={styles.termsActions}>
+              <TouchableOpacity
+                style={[styles.termsActionButton, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}
+                onPress={() => {
+                  setHasAcceptedTerms(false);
+                  setShowTermsModal(false);
+                }}
+              >
+                <Text style={[styles.termsActionText, { color: colors.text }]}>Decline</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.termsActionButton, { backgroundColor: colors.accent }]}
+                onPress={() => {
+                  setHasAcceptedTerms(true);
+                  setShowTermsModal(false);
+                }}
+              >
+                <Text style={[styles.termsActionText, { color: colors.mode === 'dark' ? '#0b1020' : '#ffffff' }]}>Agree</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </Modal>
 
       {isWeb ? (
         <>
+          <Navbar
+            colors={colors}
+            activeTab={activeTab}
+            isLoggedIn={isLoggedIn}
+            currentUser={currentUser}
+            onTabPress={handleTabPress}
+            onLogout={handleLogout}
+            onOpenAuth={openAuthModal}
+            onToggleTheme={toggleTheme}
+            themeMode={themeMode}
+            isMobileMenuOpen={mobileMenuOpen}
+            onToggleMobileMenu={setMobileMenuOpen}
+          />
           <ScrollView
-            style={styles.mainContent}
-            contentContainerStyle={styles.webMainScrollContent}
-            showsVerticalScrollIndicator
+            style={[styles.mainContent]}
+            contentContainerStyle={[
+              styles.webMainScrollContent,
+              {
+                paddingHorizontal: screenWidth < 480 ? 12 : 20,
+                paddingBottom: 40,
+              },
+            ]}
+            showsVerticalScrollIndicator={false}
             bounces={false}
+            scrollEventThrottle={16}
+            nestedScrollEnabled={true}
           >
-            <View style={[styles.header, styles.headerWeb, { borderBottomColor: colors.border, backgroundColor: colors.surface }]}>
-              <View style={styles.headerBrand}>
-                <Image
-                  source={require('./assets/Electripay-final-logo.png')}
-                  style={styles.headerLogo}
-                  resizeMode="contain"
-                />
-                <View>
-                  <Text style={[styles.headerTitle, { color: colors.text }]}>
-                  ELECTRIPAY
-                  </Text>
-                  <Text style={[styles.headerSubtitle, { color: colors.mutedText }]}>
-                    Smart electric billing
-                  </Text>
-                </View>
-              </View>
-              {!isLoggedIn ? (
-                <View style={styles.webHeaderActions}>
-                  <TouchableOpacity
-                    onPress={() => openAuthModal('login')}
-                    style={[styles.webHeaderButton, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}
-                  >
-                    <Text style={[styles.webHeaderButtonText, { color: colors.text }]}>Log In</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => openAuthModal('signup')}
-                    style={[styles.webHeaderButton, { backgroundColor: colors.accent, borderColor: colors.accent }]}
-                  >
-                    <Text style={[styles.webHeaderButtonText, { color: colors.mode === 'dark' ? '#0b1020' : '#ffffff' }]}>Sign Up</Text>
-                  </TouchableOpacity>
-                  {renderThemeSwitch()}
-                </View>
-              ) : (
-                <TouchableOpacity
-                  onPress={() => setWebMenuOpen((value) => !value)}
-                  style={[styles.webBurgerButton, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}
-                >
-                  <View style={styles.webBurgerIcon}>
-                    <View style={[styles.webBurgerLine, { backgroundColor: colors.text }]} />
-                    <View style={[styles.webBurgerLine, { backgroundColor: colors.text }]} />
-                    <View style={[styles.webBurgerLine, { backgroundColor: colors.text }]} />
-                  </View>
-                </TouchableOpacity>
-              )}
-            </View>
-            {!isLoggedIn && (
-              <View style={[styles.webHero, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-                <View style={styles.webHeroCopy}>
-                  <Text style={[styles.webEyebrow, { color: colors.accent }]}>Interactive Billing Portal</Text>
-                  <Text style={[styles.webTitle, { color: colors.text }]}>
-                    Manage electric billing with a website-style control center.
-                  </Text>
-                  <Text style={[styles.webDescription, { color: colors.mutedText }]}>
-                    Electripay brings billing, payments, usage tracking, and account tools into one polished web experience.
-                  </Text>
-                </View>
-                <View style={styles.webStatsRow}>
-                  {webHighlights.map((item) => (
-                    <View
-                      key={item.value}
-                      style={[styles.webStatCard, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}
-                    >
-                      <Text style={[styles.webStatValue, { color: colors.text }]}>{item.value}</Text>
-                      <Text style={[styles.webStatLabel, { color: colors.mutedText }]}>{item.label}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            )}
+           
             {isLoggedIn ? (
               <View style={styles.webAppShell}>
-                <View style={[styles.webPortalHeader, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <View
+                  style={[
+                    styles.webPortalHeader,
+                    screenWidth < 768 ? styles.webPortalHeaderMobile : null,
+                    getContentGlassStyle('strong'),
+                    { marginTop: screenWidth < 480 ? 12 : 0 },
+                  ]}
+                >
                   <View>
                     <Text style={[styles.webPortalEyebrow, { color: colors.accent }]}>
                       {activeTab.toUpperCase()}
                     </Text>
-                    <Text style={[styles.webPortalTitle, { color: colors.text }]}>
-                      {activeTab === 'dashboard' ? 'Energy insights and account overview' : activeTab === 'payment' ? 'Payments and QR billing tools' : 'Profile and account controls'}
-                    </Text>
-                  </View>
-                  <View style={[styles.webPortalBadge, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
-                    <Text style={[styles.webPortalBadgeText, { color: colors.text }]}>
-                      {currentUser?.name || currentUser?.username || 'Customer'}
+                    <Text
+                      style={[
+                        styles.webPortalTitle,
+                        screenWidth < 480
+                          ? styles.webPortalTitleXs
+                          : screenWidth < 768
+                            ? styles.webPortalTitleSm
+                            : screenWidth < 1024
+                              ? styles.webPortalTitleMd
+                              : null,
+                        activeTab === 'maintenance' && screenWidth < 480
+                          ? styles.webPortalTitleMaintenanceXs
+                          : null,
+                        activeTab === 'maintenance' && screenWidth < 768
+                          ? styles.webPortalTitleMaintenanceMobile
+                          : null,
+                        { color: colors.text },
+                      ]}
+                    >
+                      {activeTab === 'dashboard'
+                        ? 'Energy insights and account overview'
+                        : activeTab === 'payment'
+                          ? 'Payments and QR billing tools'
+                          : activeTab === 'maintenance'
+                            ? screenWidth < 480
+                              ? 'Maintenance hotline and emergency reporting'
+                              : 'Maintenance hotline and emergency reporting'
+                            : 'Profile and account controls'}
                     </Text>
                   </View>
                 </View>
                 <Animated.View
                   style={[
                     styles.webContentFrame,
+                    getContentGlassStyle('strong'),
                     {
-                      backgroundColor: colors.surface,
-                      borderColor: colors.border,
                       opacity: webContentOpacity,
                       transform: [{ translateY: webContentTranslateY }],
                     },
@@ -971,89 +1164,22 @@ export default function App() {
               </View>
             )}
           </ScrollView>
-          {isLoggedIn && webMenuOpen && (
-          <>
-            <TouchableOpacity
-              activeOpacity={1}
-              onPress={() => setWebMenuOpen(false)}
-              style={[styles.webMenuBackdrop, { backgroundColor: 'rgba(2, 6, 23, 0.42)' }]}
-            />
-            <Animated.View
-              style={[
-                styles.webMenuPanel,
-                {
-                  backgroundColor: colors.surface,
-                  borderColor: colors.border,
-                  opacity: webMenuOpacity,
-                  transform: [{ translateX: webMenuTranslateX }],
-                },
-              ]}
-            >
-              <View style={[styles.webDrawerThemeWrap, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
-                {renderThemeSwitch()}
-              </View>
-              {['dashboard', 'payment', 'profile'].map((tab) => (
-                <TouchableOpacity
-                  key={tab}
-                  onPress={() => {
-                    handleTabPress(tab);
-                    setWebMenuOpen(false);
-                  }}
-                  style={[
-                    styles.webDrawerItem,
-                    {
-                      backgroundColor: activeTab === tab ? colors.accent : colors.surfaceAlt,
-                      borderColor: activeTab === tab ? colors.accent : colors.border,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.webDrawerItemText,
-                      { color: activeTab === tab ? (colors.mode === 'dark' ? '#0b1020' : '#ffffff') : colors.text },
-                    ]}
-                  >
-                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-              <TouchableOpacity
-                onPress={handleLogout}
-                style={[styles.webDrawerItem, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}
-              >
-                <Text style={[styles.webDrawerItemText, { color: colors.danger }]}>Log Out</Text>
-              </TouchableOpacity>
-            </Animated.View>
-          </>
-          )}
         </>
       ) : (
         <View style={styles.mainContent}>
-          <View style={[styles.header, { borderBottomColor: colors.border }]}>
-            <View style={styles.headerBrand}>
-              <Image
-                source={require('./assets/Electripay-final-logo.png')}
-                style={styles.headerLogo}
-                resizeMode="contain"
-              />
-              <View>
-                <Text style={[styles.headerTitle, { color: colors.text }]}>
-                ELECTRIPAY
-                </Text>
-                <Text style={[styles.headerSubtitle, { color: colors.mutedText }]}>
-                  Smart electric billing
-                </Text>
-              </View>
-            </View>
-            <TouchableOpacity
-              onPress={toggleTheme}
-              style={[styles.themeButton, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}
-            >
-              <Text style={[styles.themeButtonText, { color: colors.text }]}>
-                {themeMode === 'dark' ? 'Light' : 'Dark'}
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <Navbar
+            colors={colors}
+            activeTab={activeTab}
+            isLoggedIn={isLoggedIn}
+            currentUser={currentUser}
+            onTabPress={handleTabPress}
+            onLogout={handleLogout}
+            onOpenAuth={openAuthModal}
+            onToggleTheme={toggleTheme}
+            themeMode={themeMode}
+            isMobileMenuOpen={mobileMenuOpen}
+            onToggleMobileMenu={setMobileMenuOpen}
+          />
           <View style={styles.pagerContainer}>
             <ScrollView
               ref={pagerRef}
@@ -1107,6 +1233,13 @@ export default function App() {
                   />
                 </View>
               </View>
+              <View style={[styles.page, { width: pageWidth }]}>
+                <View style={styles.content}>
+                  <MaintenanceSection
+                    colors={colors}
+                  />
+                </View>
+              </View>
             </ScrollView>
           </View>
         </View>
@@ -1136,7 +1269,11 @@ export default function App() {
         />
 
         {tabs.map((tab) => (
-          <TouchableOpacity key={tab} style={styles.tabButton} onPress={() => handleTabPress(tab)}>
+          <TouchableOpacity
+            key={tab}
+            style={styles.tabButton}
+            onPress={() => handleTabPress(tab)}
+          >
             <Text
               style={[
                 styles.tabText,
@@ -1154,116 +1291,103 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  mainContent: { flex: 1 },
+  container: { flex: 1, position: 'relative' },
+  webLaptopScale: {
+    zoom: 1.12,
+  },
+  backgroundContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 0,
+    overflow: 'hidden',
+  },
+  backgroundImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  backgroundImageOverlay: {
+    zIndex: 1,
+  },
+  backgroundOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(8, 17, 33, 0.2)',
+    zIndex: 1,
+  },
+  mainContent: { flex: 1, position: 'relative', zIndex: 2 },
   webMainScrollContent: {
     paddingBottom: 40,
+    width: '100%',
+    position: 'relative',
+    zIndex: 2,
   },
-  pagerContainer: { flex: 1 },
-  pager: { flex: 1 },
+  pagerContainer: { flex: 1, position: 'relative', zIndex: 2 },
+  pager: { flex: 1, position: 'relative', zIndex: 2 },
   header: {
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    flexDirection: 'row',
-    paddingTop: 44,
-    paddingBottom: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
+    display: 'none',
   },
   headerWeb: {
-    width: '100%',
-    maxWidth: 1240,
-    alignSelf: 'center',
-    marginTop: 20,
-    borderWidth: 1,
-    borderRadius: 24,
+    display: 'none',
   },
   headerBrand: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
+    display: 'none',
   },
   headerLogo: {
-    width: 60,
-    height: 60,
-    marginRight: 10,
+    display: 'none',
   },
   headerTitle: {
-    fontSize: 30,
-    fontFamily: 'ElectroFont1',
+    display: 'none',
   },
   headerSubtitle: {
-    fontSize: 12,
-    marginTop: -2,
-    fontWeight: '600',
-    letterSpacing: 0.4,
+    display: 'none',
   },
   themeButton: {
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
+    display: 'none',
   },
   themeButtonText: {
-    fontSize: 12,
-    fontWeight: '700',
+    display: 'none',
   },
   webHeaderActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+    display: 'none',
   },
   webHeaderButton: {
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    display: 'none',
   },
   webHeaderButtonText: {
-    fontSize: 12,
-    fontWeight: '700',
+    display: 'none',
   },
   webThemeSwitch: {
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingVertical: 7,
-    paddingHorizontal: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+    display: 'none',
   },
   webThemeSwitchLabel: {
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 0.4,
+    display: 'none',
   },
   webThemeSwitchTrack: {
-    width: 38,
-    height: 20,
-    borderRadius: 999,
-    padding: 2,
-    justifyContent: 'center',
+    display: 'none',
   },
   webThemeSwitchThumb: {
-    width: 16,
-    height: 16,
-    borderRadius: 999,
+    display: 'none',
   },
   webBurgerButton: {
-    borderWidth: 1,
-    borderRadius: 999,
-    width: 46,
-    height: 46,
-    alignItems: 'center',
-    justifyContent: 'center',
+    display: 'none',
   },
   webBurgerIcon: {
-    width: 16,
-    gap: 3,
+    display: 'none',
   },
   webBurgerLine: {
-    height: 2,
-    borderRadius: 999,
+    display: 'none',
   },
   content: {
     padding: 16,
@@ -1289,6 +1413,9 @@ const styles = StyleSheet.create({
     height: 100,
     bottom: 0,
     borderTopWidth: 1,
+    paddingHorizontal: 8,
+    paddingTop: 8,
+    gap: 8,
   },
   tabBarWeb: {
     display: 'none',
@@ -1297,22 +1424,21 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 14,
+    overflow: 'hidden',
   },
   tabText: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '700',
     letterSpacing: 0.7,
-    marginBottom: 50,
+    marginBottom: 0,
   },
   tabTextWeb: {
     marginBottom: 0,
   },
   tabIndicator: {
-    position: 'absolute',
-    bottom: 45,
-    height: 4,
-    width: '25%',
-    borderRadius: 999,
+    display: 'none',
   },
   tabIndicatorWeb: {
     display: 'none',
@@ -1351,10 +1477,15 @@ const styles = StyleSheet.create({
     marginTop: 18,
     marginBottom: 18,
     padding: 28,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'stretch',
-    gap: 18,
+    paddingVertical: 40,
+    flexDirection: 'column',
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    gap: 28,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(17, 29, 51, 0.45)',
+    backdropFilter: 'blur(10px)',
+    borderColor: 'rgba(148, 163, 184, 0.25)',
   },
   webHeroCopy: {
     flex: 1.1,
@@ -1377,18 +1508,54 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 24,
     maxWidth: 520,
+    marginBottom: 24,
+  },
+  webAuthButtons: {
+    width: '100%',
+    maxWidth: 520,
+    flexDirection: 'row',
+    gap: 12,
+    flexWrap: 'wrap',
+    overflow: 'hidden',
+  },
+  webAuthButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: 8,
+    flex: 1,
+    minWidth: 120,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  webAuthButtonPrimary: {
+    flex: 1,
+  },
+  webAuthButtonSecondary: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  webAuthButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   webStatsRow: {
-    flex: 1,
+    width: '100%',
+    flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 14,
+    flexWrap: 'wrap',
+    overflow: 'hidden',
   },
   webStatCard: {
+    flex: 1,
+    minWidth: 160,
     borderWidth: 1,
     borderRadius: 22,
     padding: 18,
     minHeight: 96,
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   webStatValue: {
     fontSize: 22,
@@ -1398,6 +1565,25 @@ const styles = StyleSheet.create({
   webStatLabel: {
     fontSize: 13,
     lineHeight: 19,
+  },
+  webSimpleHero: {
+    width: '100%',
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 28,
+    paddingVertical: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 32,
+    marginBottom: 32,
+    backgroundColor: 'rgba(17, 29, 51, 0.2)',
+    backdropFilter: 'blur(15px)',
+    borderColor: 'rgba(148, 163, 184, 0.35)',
+  },
+  webSimpleHeroText: {
+    fontWeight: '600',
+    textAlign: 'center',
+    maxWidth: 500,
   },
   webTabsWrap: {
     display: 'none',
@@ -1422,39 +1608,19 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   webMenuPanel: {
-    position: 'absolute',
-    top: 108,
-    right: '50%',
-    marginRight: -620,
-    width: 320,
-    borderWidth: 1,
-    borderRadius: 24,
-    padding: 14,
-    gap: 10,
-    zIndex: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.18,
-    shadowRadius: 26,
+    display: 'none',
   },
   webMenuBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 15,
+    display: 'none',
   },
   webDrawerItem: {
-    borderWidth: 1,
-    borderRadius: 18,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
+    display: 'none',
   },
   webDrawerThemeWrap: {
-    borderWidth: 1,
-    borderRadius: 18,
-    padding: 10,
+    display: 'none',
   },
   webDrawerItemText: {
-    fontSize: 14,
-    fontWeight: '800',
+    display: 'none',
   },
   webAppContent: {
     flex: 1,
@@ -1472,6 +1638,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 16,
   },
+  webPortalHeaderMobile: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+  },
   webPortalEyebrow: {
     fontSize: 11,
     fontWeight: '800',
@@ -1484,15 +1654,32 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     maxWidth: 760,
   },
-  webPortalBadge: {
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+  webPortalTitleMd: {
+    fontSize: 24,
+    lineHeight: 32,
+    maxWidth: 620,
   },
-  webPortalBadgeText: {
-    fontSize: 13,
-    fontWeight: '700',
+  webPortalTitleSm: {
+    fontSize: 20,
+    lineHeight: 28,
+    maxWidth: 500,
+  },
+  webPortalTitleXs: {
+    fontSize: 17,
+    lineHeight: 24,
+    maxWidth: 320,
+  },
+  webPortalTitleMaintenanceXs: {
+    fontSize: 15,
+    lineHeight: 20,
+    maxWidth: 260,
+  },
+  webPortalTitleMaintenanceMobile: {
+    width: '100%',
+    maxWidth: '100%',
+    fontSize: 15,
+    lineHeight: 20,
+    flexShrink: 1,
   },
   webContentFrame: {
     borderWidth: 1,
@@ -1500,8 +1687,11 @@ const styles = StyleSheet.create({
     padding: 22,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.1,
     shadowRadius: 26,
+    backgroundColor: 'rgba(17, 29, 51, 0.2)',
+    backdropFilter: 'blur(15px)',
+    borderColor: 'rgba(148, 163, 184, 0.35)',
   },
   modalOverlay: {
     flex: 1,
@@ -1600,15 +1790,21 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 18 },
-    shadowOpacity: 0.22,
+    shadowOpacity: 0.1,
     shadowRadius: 30,
+    backgroundColor: 'rgba(17, 29, 51, 0.25)',
+    backdropFilter: 'blur(15px)',
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.4)',
   },
   modalCloseButton: {
     alignSelf: 'flex-end',
     borderWidth: 1,
     borderRadius: 999,
-    paddingVertical: 7,
-    paddingHorizontal: 14,
+    width: 38,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 12,
   },
   modalCloseButtonText: {
@@ -1639,37 +1835,126 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginBottom: 22,
   },
+  modalScrollContent: {
+    width: '100%',
+    maxHeight: 400,
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
   inputModern: {
+    width: '100%',
     marginBottom: 10,
     padding: 12,
     borderRadius: 10,
     borderWidth: 1,
+    overflow: 'hidden',
   },
   passwordInputWrap: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
     borderRadius: 10,
     marginBottom: 10,
     paddingLeft: 12,
+    overflow: 'hidden',
   },
   passwordInputField: {
     flex: 1,
     paddingVertical: 12,
   },
   passwordToggle: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    width: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+/*  */    paddingVertical: 10,
   },
   passwordToggleText: {
     fontSize: 12,
     fontWeight: '700',
   },
+  termsButton: {
+    width: '100%',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  termsButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  termsAgreeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    marginBottom: 4,
+    gap: 10,
+  },
+  termsCheckbox: {
+    width: 18,
+    height: 18,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  termsAgreeText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  termsOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+  },
+  termsCard: {
+    width: '100%',
+    maxWidth: 540,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    maxHeight: '80%',
+  },
+  termsTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  termsContent: {
+    marginBottom: 14,
+  },
+  termsText: {
+    fontSize: 13,
+    lineHeight: 20,
+    marginBottom: 10,
+  },
+  termsActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  termsActionButton: {
+    flex: 1,
+    borderRadius: 10,
+    paddingVertical: 11,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  termsActionText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
   loginButton: {
+    width: '100%',
     backgroundColor: '#FFD700',
     padding: 12,
     borderRadius: 8,
     marginTop: 10,
+    overflow: 'hidden',
   },
   loginButtonText: {
     textAlign: 'center',
@@ -1677,6 +1962,7 @@ const styles = StyleSheet.create({
     color: '#000',
   },
   authLink: {
+    width: '100%',
     textAlign: 'center',
     color: '#ADD8E6',
     marginTop: 12,

@@ -5,13 +5,14 @@ import {
   Text,
   TouchableOpacity,
   Image,
-  Alert,
   Platform,
   Animated,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import axios from 'axios';
+import FontAwesome from 'react-native-vector-icons/FontAwesome6';
+import { showClientAlert } from '../utils/showClientAlert';
 
 export default function PaymentSection({ colors, apiBaseUrl, user, isActive, onScroll }) {
   const [receipt, setReceipt] = useState(null);
@@ -22,6 +23,28 @@ export default function PaymentSection({ colors, apiBaseUrl, user, isActive, onS
   const [showRecentPayments, setShowRecentPayments] = useState(false);
   const scrollRef = useRef(null);
   const apiHeaders = { headers: { 'ngrok-skip-browser-warning': 'true' } };
+  const getGlassCardStyle = (variant = 'base') => {
+    const darkMode = colors.mode === 'dark';
+    const isStrong = variant === 'strong';
+    const bg = darkMode
+      ? isStrong
+        ? 'rgba(15, 23, 42, 0.46)'
+        : 'rgba(15, 23, 42, 0.34)'
+      : isStrong
+        ? 'rgba(255, 255, 255, 0.66)'
+        : 'rgba(255, 255, 255, 0.5)';
+
+    return {
+      backgroundColor: bg,
+      borderColor: darkMode ? 'rgba(148, 163, 184, 0.35)' : 'rgba(255, 255, 255, 0.72)',
+      ...(Platform.OS === 'web'
+        ? {
+            backdropFilter: 'blur(14px) saturate(135%)',
+            WebkitBackdropFilter: 'blur(14px) saturate(135%)',
+          }
+        : {}),
+    };
+  };
 
   const isInvalidApiPayload = (payload) =>
     typeof payload === 'string' &&
@@ -41,7 +64,7 @@ export default function PaymentSection({ colors, apiBaseUrl, user, isActive, onS
       setPaymentData(response.data);
     } catch (error) {
       console.error('Error fetching payment data:', error);
-      Alert.alert('Error', error?.message || 'Failed to load payment details');
+      showClientAlert('Error', error?.message || 'Failed to load payment details');
     } finally {
       setLoading(false);
     }
@@ -69,7 +92,7 @@ export default function PaymentSection({ colors, apiBaseUrl, user, isActive, onS
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (!permission.granted) {
-      Alert.alert('Permission required', 'Allow access to gallery');
+      showClientAlert('Permission required', 'Allow access to gallery');
       return;
     }
 
@@ -85,12 +108,12 @@ export default function PaymentSection({ colors, apiBaseUrl, user, isActive, onS
 
   const submitReceipt = async () => {
     if (!user?._id) {
-      Alert.alert('Error', 'No user is logged in');
+      showClientAlert('Error', 'No user is logged in');
       return;
     }
 
     if (!receipt) {
-      Alert.alert('No Receipt', 'Please upload a receipt first.');
+      showClientAlert('No Receipt', 'Please upload a receipt first.');
       return;
     }
 
@@ -106,10 +129,10 @@ export default function PaymentSection({ colors, apiBaseUrl, user, isActive, onS
         throw new Error('Unexpected API response. Check tunnel/API base URL and try again.');
       }
       setPaymentData(response.data.payments);
-      Alert.alert('Submitted', 'Receipt sent to admin for verification.');
+      showClientAlert('Submitted', 'Receipt sent to admin for verification.');
     } catch (error) {
       console.error('Error submitting receipt:', error);
-      Alert.alert('Error', error?.message || 'Failed to submit receipt');
+      showClientAlert('Error', error?.message || 'Failed to submit receipt');
     } finally {
       setSubmitting(false);
     }
@@ -136,7 +159,7 @@ export default function PaymentSection({ colors, apiBaseUrl, user, isActive, onS
         const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
 
         if (!permissions.granted) {
-          Alert.alert('Download Cancelled', 'Folder access was not granted, so the QR code was not saved.');
+          showClientAlert('Download Cancelled', 'Folder access was not granted, so the QR code was not saved.');
           return;
         }
 
@@ -154,7 +177,7 @@ export default function PaymentSection({ colors, apiBaseUrl, user, isActive, onS
           encoding: FileSystem.EncodingType.Base64,
         });
 
-        Alert.alert('QR Saved', 'The QR code has been downloaded to the folder you selected.');
+        showClientAlert('QR Saved', 'The QR code has been downloaded to the folder you selected.');
         return;
       }
 
@@ -164,10 +187,10 @@ export default function PaymentSection({ colors, apiBaseUrl, user, isActive, onS
         to: savedUri,
       });
 
-      Alert.alert('QR Saved', `The QR code was saved inside the app files:\n${savedUri}`);
+      showClientAlert('QR Saved', `The QR code was saved inside the app files:\n${savedUri}`);
     } catch (error) {
       console.error('Error downloading QR code:', error);
-      Alert.alert('Error', 'Failed to download the QR code');
+      showClientAlert('Error', 'Failed to download the QR code');
     } finally {
       setDownloadingQr(false);
     }
@@ -199,7 +222,7 @@ export default function PaymentSection({ colors, apiBaseUrl, user, isActive, onS
       onScroll={onScroll}
       scrollEventThrottle={16}
     >
-      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <View style={[styles.card, getGlassCardStyle('strong')]}>
         <Text style={[styles.title, { color: colors.text }]}>Current Bill</Text>
         <Text style={[styles.amount, { color: colors.accent }]}>PHP {bill.amount}</Text>
         <Text style={[styles.text, { color: colors.text }]}>Due Date: {bill.dueDate}</Text>
@@ -214,7 +237,7 @@ export default function PaymentSection({ colors, apiBaseUrl, user, isActive, onS
         </Text>
       </View>
 
-      <View style={[styles.card, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+      <View style={[styles.card, getGlassCardStyle()]}>
         <Text style={[styles.title, { color: colors.text }]}>Pay via QR Code</Text>
         <Image
           source={{
@@ -233,7 +256,7 @@ export default function PaymentSection({ colors, apiBaseUrl, user, isActive, onS
         </TouchableOpacity>
       </View>
 
-      <View style={[styles.card, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+      <View style={[styles.card, getGlassCardStyle()]}>
         <Text style={[styles.title, { color: colors.text }]}>Payment Instructions</Text>
         <Text style={[styles.step, { color: colors.text }]}>1. Open GCash, Maya, or your banking app</Text>
         <Text style={[styles.step, { color: colors.text }]}>2. Scan the QR code above</Text>
@@ -242,7 +265,7 @@ export default function PaymentSection({ colors, apiBaseUrl, user, isActive, onS
         <Text style={[styles.step, { color: colors.text }]}>5. Upload the receipt below for verification</Text>
       </View>
 
-      <View style={[styles.card, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+      <View style={[styles.card, getGlassCardStyle()]}>
         <Text style={[styles.title, { color: colors.text }]}>Upload Payment Receipt</Text>
 
         <TouchableOpacity
@@ -269,7 +292,7 @@ export default function PaymentSection({ colors, apiBaseUrl, user, isActive, onS
         </TouchableOpacity>
       </View>
 
-      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <View style={[styles.card, getGlassCardStyle('strong')]}>
         <TouchableOpacity
           style={styles.collapseHeader}
           onPress={() => setShowRecentPayments((value) => !value)}
@@ -277,9 +300,11 @@ export default function PaymentSection({ colors, apiBaseUrl, user, isActive, onS
           <Text style={[styles.title, { color: colors.text, marginBottom: 0 }]}>
             Recent Payments
           </Text>
-          <Text style={[styles.collapseIcon, { color: colors.mutedText }]}>
-            {showRecentPayments ? 'Hide' : 'Show'}
-          </Text>
+          <FontAwesome
+            name={showRecentPayments ? 'angle-up' : 'caret-down'}
+            size={16}
+            color={colors.mutedText}
+          />
         </TouchableOpacity>
 
         {showRecentPayments && paymentHistory.map((item) => (
@@ -312,15 +337,14 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 16,
     elevation: 3,
+    backgroundColor: 'rgba(17, 29, 51, 0.4)',
+    backdropFilter: 'blur(10px)',
+    borderColor: 'rgba(148, 163, 184, 0.2)',
   },
   collapseHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  collapseIcon: {
-    fontSize: 13,
-    fontWeight: '700',
   },
   title: { fontSize: 17, fontWeight: '800', marginBottom: 10 },
   amount: { fontSize: 32, fontWeight: 'bold', marginBottom: 10 },
@@ -365,13 +389,12 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   historyItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     paddingVertical: 10,
     borderBottomWidth: 1,
+    gap: 8,
   },
-  historyDate: { fontSize: 13, fontWeight: '600' },
-  historyStatus: { fontSize: 11 },
-  historyMethod: { fontSize: 11 },
+  historyDate: { fontSize: 13, fontWeight: '600', marginBottom: 4 },
+  historyStatus: { fontSize: 11, marginBottom: 2 },
+  historyMethod: { fontSize: 11, marginBottom: 2 },
   historyAmount: { fontSize: 14, fontWeight: 'bold' },
 });

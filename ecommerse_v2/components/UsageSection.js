@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Animated, Platform } from 'react-native';
 import axios from 'axios';
+import FontAwesome from 'react-native-vector-icons/FontAwesome6';
 
 export default function UsageSection({ colors, apiBaseUrl, user, isActive, onScroll }) {
   const [usageData, setUsageData] = useState(null);
@@ -8,6 +9,28 @@ export default function UsageSection({ colors, apiBaseUrl, user, isActive, onScr
   const [showAllMonths, setShowAllMonths] = useState(false);
   const scrollRef = useRef(null);
   const apiHeaders = { headers: { 'ngrok-skip-browser-warning': 'true' } };
+  const getGlassCardStyle = (variant = 'base') => {
+    const darkMode = colors.mode === 'dark';
+    const isStrong = variant === 'strong';
+    const bg = darkMode
+      ? isStrong
+        ? 'rgba(15, 23, 42, 0.46)'
+        : 'rgba(15, 23, 42, 0.34)'
+      : isStrong
+        ? 'rgba(255, 255, 255, 0.66)'
+        : 'rgba(255, 255, 255, 0.5)';
+
+    return {
+      backgroundColor: bg,
+      borderColor: darkMode ? 'rgba(148, 163, 184, 0.35)' : 'rgba(255, 255, 255, 0.72)',
+      ...(Platform.OS === 'web'
+        ? {
+            backdropFilter: 'blur(14px) saturate(135%)',
+            WebkitBackdropFilter: 'blur(14px) saturate(135%)',
+          }
+        : {}),
+    };
+  };
 
   useEffect(() => {
     const fetchUsage = async () => {
@@ -80,7 +103,7 @@ export default function UsageSection({ colors, apiBaseUrl, user, isActive, onScr
       onScroll={onScroll}
       scrollEventThrottle={16}
     >
-      <View style={[styles.card, styles.chartCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <View style={[styles.card, styles.chartCard, getGlassCardStyle('strong')]}>
         <View style={styles.chartHeader}>
           <View>
             <Text style={[styles.cardTitle, { color: colors.text }]}>Weekly Usage Pattern</Text>
@@ -88,18 +111,18 @@ export default function UsageSection({ colors, apiBaseUrl, user, isActive, onScr
               {isWeb ? 'A cleaner week-by-week desktop view of household consumption.' : 'Track how daily usage shifts across the week.'}
             </Text>
           </View>
-          <View style={[styles.chartBadge, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+          <View style={[styles.chartBadge, getGlassCardStyle()]}>
             <Text style={[styles.chartBadgeLabel, { color: colors.mutedText }]}>Avg</Text>
             <Text style={[styles.chartBadgeValue, { color: colors.text }]}>{averageUsage} kWh</Text>
           </View>
         </View>
 
         <View style={styles.chartMetaRow}>
-          <View style={[styles.chartMetaCard, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+          <View style={[styles.chartMetaCard, getGlassCardStyle()]}>
             <Text style={[styles.chartMetaLabel, { color: colors.mutedText }]}>Peak</Text>
             <Text style={[styles.chartMetaValue, { color: colors.text }]}>{maxUsage} kWh</Text>
           </View>
-          <View style={[styles.chartMetaCard, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+          <View style={[styles.chartMetaCard, getGlassCardStyle()]}>
             <Text style={[styles.chartMetaLabel, { color: colors.mutedText }]}>Low</Text>
             <Text style={[styles.chartMetaValue, { color: colors.text }]}>{minUsage} kWh</Text>
           </View>
@@ -125,7 +148,7 @@ export default function UsageSection({ colors, apiBaseUrl, user, isActive, onScr
               {weekly.map((item) => (
                 <View key={item.day} style={styles.barWrapper}>
                   <Text style={[styles.barValue, { color: colors.text }]}>{item.usage}</Text>
-                  <View style={[styles.barTrack, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+                  <View style={[styles.barTrack, getGlassCardStyle()]}>
                     <View
                       style={[
                         styles.bar,
@@ -144,7 +167,7 @@ export default function UsageSection({ colors, apiBaseUrl, user, isActive, onScr
         </View>
       </View>
 
-      <View style={[styles.card, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+      <View style={[styles.card, getGlassCardStyle()]}>
         <Text style={[styles.cardTitle, { color: colors.text }]}>Current Week Overview</Text>
         <View style={styles.statsGrid}>
           <View style={styles.statsItem}>
@@ -174,11 +197,15 @@ export default function UsageSection({ colors, apiBaseUrl, user, isActive, onScr
         </View>
       </View>
 
-      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <View style={[styles.card, getGlassCardStyle('strong')]}>
         <View style={styles.headerRow}>
           <Text style={[styles.cardTitle, { color: colors.text }]}>Monthly Comparison</Text>
-          <TouchableOpacity style={[styles.button, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]} onPress={() => setShowAllMonths((value) => !value)}>
-            <Text style={[styles.buttonText, { color: colors.text }]}>{showAllMonths ? 'show less' : 'see more'}</Text>
+          <TouchableOpacity style={[styles.button, getGlassCardStyle()]} onPress={() => setShowAllMonths((value) => !value)}>
+            <FontAwesome
+              name={showAllMonths ? 'angle-up' : 'caret-down'}
+              size={16}
+              color={colors.text}
+            />
           </TouchableOpacity>
         </View>
 
@@ -197,7 +224,7 @@ export default function UsageSection({ colors, apiBaseUrl, user, isActive, onScr
         ))}
       </View>
 
-      <View style={[styles.card, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+      <View style={[styles.card, getGlassCardStyle()]}>
         <Text style={[styles.cardTitle, { color: colors.text }]}>Efficiency Tips</Text>
         {usageData.tips.map((tip) => (
           <Text key={tip} style={[styles.tipText, { color: colors.text }]}>
@@ -216,16 +243,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   button: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    width: 42,
+    height: 42,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
     borderRadius: 999,
     borderWidth: 1,
     alignItems: 'center',
-  },
-  buttonText: {
-    fontWeight: '700',
-    textAlign: 'center',
-    fontSize: 12,
+    justifyContent: 'center',
   },
   container: {
     flex: 1,
@@ -247,15 +272,16 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
+    backgroundColor: 'rgba(17, 29, 51, 0.4)',
+    backdropFilter: 'blur(10px)',
+    borderColor: 'rgba(148, 163, 184, 0.2)',
   },
   chartCard: {
     overflow: 'hidden',
   },
   chartHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: 14,
+    flexDirection: 'column',
+    gap: 12,
     marginBottom: 14,
   },
   cardTitle: {

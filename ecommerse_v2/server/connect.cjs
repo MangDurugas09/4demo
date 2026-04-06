@@ -2,6 +2,7 @@ const path = require("path");
 const express = require("express");
 const cors = require("cors");
 const { MongoClient, ObjectId } = require("mongodb");
+const ngrok = require("ngrok");
 
 require("dotenv").config({ path: path.join(__dirname, "config.env") });
 
@@ -16,13 +17,32 @@ app.use(cors({
 
 app.use(express.json());
 
+// Health check endpoint for client connection verification
+app.get("/health", (req, res) => {
+  res.json({ ok: true, message: "Server is running" });
+});
+
 const uri = process.env.ATLAS_URI;
 
 if (!uri) {
   throw new Error("ATLAS_URI is missing. Check DEMO/ecommerse_v2/server/config.env.");
 }
 
-const client = new MongoClient(uri);
+// Create MongoDB client with connection options
+const mongoOptions = {
+  connectTimeoutMS: 10000,
+  serverSelectionTimeoutMS: 5000,
+  retryWrites: true,
+};
+
+let client;
+try {
+  client = new MongoClient(uri, mongoOptions);
+} catch (clientErr) {
+  console.error("Failed to create MongoClient:", clientErr.message);
+  console.error("ATLAS_URI format:", uri?.substring(0, 60) + "...");
+  process.exit(1);
+}
 
 let db;
 
@@ -107,25 +127,53 @@ function buildUsageSummary(weekly) {
 }
 
 async function seedUsers() {
-  const users = await db.collection("users").find().toArray();
-
-  for (const user of users) {
-    const seedData = createSeedData(user);
-    const updateData = {};
-
-    if (!user.usage) updateData.usage = seedData.usage;
-    if (!user.payments) updateData.payments = seedData.payments;
-    if (!user.accountNumber) updateData.accountNumber = seedData.payments.currentBill.accountNumber;
-
-    const normalizedFields = normalizeUserProfile(user);
-    if (!user.name && normalizedFields.name) updateData.name = normalizedFields.name;
-    if (!user.address && normalizedFields.address) updateData.address = normalizedFields.address;
-    if (!user.contact && normalizedFields.contact) updateData.contact = normalizedFields.contact;
-    if (!user.avatar && normalizedFields.avatar) updateData.avatar = normalizedFields.avatar;
-
-    if (Object.keys(updateData).length > 0) {
-      await db.collection("users").updateOne(buildUserIdQuery(String(user._id)), { $set: updateData });
+  try {
+    if (!db) {
+      console.warn("⚠️ Database not initialized, skipping user seeding");
+      return;
     }
+
+    const usersCollection = db.collection("users");
+    const users = await usersCollection.find().toArray();
+
+    if (users.length === 0) {
+      console.log("📭 No users found in database");
+      return;
+    }
+
+    console.log(`🌱 Seeding ${users.length} users with default data...`);
+
+    for (const user of users) {
+      const seedData = createSeedData(user);
+      const updateData = {};
+
+      if (!user.usage) updateData.usage = seedData.usage;
+      if (!user.payments) updateData.payments = seedData.payments;
+      if (!user.accountNumber) updateData.accountNumber = seedData.payments.currentBill.accountNumber;
+
+      const normalizedFields = normalizeUserProfile(user);
+      if (!user.name && normalizedFields.name) updateData.name = normalizedFields.name;
+      if (!user.address && normalizedFields.address) updateData.address = normalizedFields.address;
+      if (!user.contact && normalizedFields.contact) updateData.contact = normalizedFields.contact;
+      if (!user.avatar && normalizedFields.avatar) updateData.avatar = normalizedFields.avatar;
+
+      if (Object.keys(updateData).length > 0) {
+        try {
+          const userId = String(user._id || '');
+          if (!userId) {
+            console.warn("⚠️ Skipping user with invalid ID");
+            continue;
+          }
+          await usersCollection.updateOne(buildUserIdQuery(userId), { $set: updateData });
+        } catch (updateErr) {
+          console.warn(`⚠️ Failed to update user: ${updateErr.message}`);
+        }
+      }
+    }
+    console.log("✅ User seeding complete");
+  } catch (seedErr) {
+    console.warn(`⚠️ Seeding warning: ${seedErr.message}`);
+    // Non-fatal error, continue startup
   }
 }
 
@@ -165,14 +213,56 @@ async function createUserDocument(payload) {
 }
 
 async function connectDB() {
-  try {
-    await client.connect();
-    db = client.db("database_electripay");
-    await seedUsers();
-    console.log("MongoDB connected");
-  } catch (err) {
-    console.error("MongoDB connection failed:", err);
+  let retries = 3;
+  let lastError;
+
+  while (retries > 0) {
+    try {
+      console.log(`Attempting MongoDB connection (${4 - retries}/3)...`);
+      console.log(`URI: ${process.env.ATLAS_URI?.substring(0, 50)}...`);
+      
+      await client.connect();
+      console.log("✅ Connected to MongoDB cluster");
+      
+      db = client.db("database_electripay");
+      
+      // Test connection with admin command
+      try {
+        const adminDb = client.db("admin");
+        await adminDb.command({ ping: 1 });
+        console.log("✅ MongoDB ping successful");
+      } catch (pingErr) {
+        console.warn("⚠️ Ping check warning:", pingErr.message);
+      }
+      
+      // Seed users
+      console.log("📊 Seeding users...");
+      await seedUsers();
+      console.log("✅ MongoDB connected successfully");
+      
+      return; // Success
+    } catch (err) {
+      lastError = err;
+      retries--;
+      console.error(`❌ Connection attempt failed: ${err.message}`);
+      console.error(`Stack: ${err.stack?.substring(0, 200)}`);
+      
+      if (retries > 0) {
+        console.log(`⏳ Retrying in 3 seconds... (${retries} attempts remaining)`);
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      }
+    }
   }
+
+  // Final failure
+  console.error("\n❌ MongoDB connection failed after 3 attempts");
+  console.error("Error:", lastError?.message);
+  console.error("\nTroubleshooting tips:");
+  console.error("1. ✅ Check ATLAS_URI in server/config.env - should start with mongodb+srv://");
+  console.error("2. ✅ Verify username and password in the URI are correct");
+  console.error("3. ✅ Go to MongoDB Atlas and whitelist your IP: https://cloud.mongodb.com/v2/atlas");
+  console.error("4. ✅ Check your internet connection");
+  console.error("5. ✅ Try again in a few moments (sometimes Atlas needs time to activate)");
 }
 
 connectDB();
@@ -237,19 +327,28 @@ app.post("/auth/forgot-password", async (req, res) => {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    const result = await db.collection("users").findOneAndUpdate(
-      {
-        username: username.trim(),
-        email: email.trim().toLowerCase(),
-        contact: contact.trim(),
-      },
-      { $set: { password: newPassword } },
-      { returnDocument: "after" }
-    );
+    const normalizedUsername = username.trim();
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedContact = contact.replace(/\D/g, "");
 
-    if (!result) {
+    const user = await db.collection("users").findOne({
+      username: { $regex: new RegExp(`^${normalizedUsername.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") },
+      email: normalizedEmail,
+    });
+
+    if (!user) {
       return res.status(404).json({ message: "Account details did not match any user" });
     }
+
+    const storedContact = String(user.contact || user.contactNumber || "").replace(/\D/g, "");
+    if (!storedContact || storedContact !== normalizedContact) {
+      return res.status(404).json({ message: "Account details did not match any user" });
+    }
+
+    await db.collection("users").updateOne(
+      { _id: user._id },
+      { $set: { password: newPassword } }
+    );
 
     res.json({ message: "Password reset successful" });
   } catch (err) {
@@ -407,6 +506,67 @@ app.get("/health", (req, res) => {
   res.json({ ok: true, dbConnected: Boolean(db) });
 });
 
-app.listen(5000, "0.0.0.0", () => {
-  console.log("Server running on port 5000");
-});
+async function startNgrokTunnel() {
+  try {
+    const ngrokToken = process.env.NGROK_AUTH_TOKEN;
+    
+    if (!ngrokToken || ngrokToken.includes('your-') || ngrokToken === 'your_token_here') {
+      console.log("\n📡 Ngrok: Auth token not configured");
+      console.log("   To enable ngrok tunnel:");
+      console.log("   1. Get token from: https://dashboard.ngrok.com/auth/your-authtoken");
+      console.log("   2. Update NGROK_AUTH_TOKEN in server/config.env\n");
+      return null;
+    }
+
+    console.log("📡 Ngrok: Attempting to create tunnel...");
+    
+    // Set auth token
+    ngrok.authtoken(ngrokToken);
+    
+    // Connect with proper configuration
+    const url = await ngrok.connect({
+      proto: 'http',
+      addr: 5000,
+      // Optional: specify region (us, eu, ap, au, sa, jp, in)
+      region: 'us',
+    });
+
+    console.log(`✅ Ngrok tunnel created: ${url}`);
+    console.log(`📱 Share this URL: ${url}`);
+    
+    return url;
+  } catch (err) {
+    console.error(`❌ Ngrok tunnel setup failed: ${err.message}`);
+    
+    // Provide specific troubleshooting based on error
+    if (err.message.includes('invalid')) {
+      console.error("   → Auth token appears invalid or expired");
+      console.error("   → Get a new token from: https://dashboard.ngrok.com/auth/your-authtoken");
+    } else if (err.message.includes('unauthorized')) {
+      console.error("   → Auth token is not authorized");
+      console.error("   → Check your ngrok account at: https://dashboard.ngrok.com/");
+    } else if (err.message.includes('ERR_NGROK_900')) {
+      console.error("   → ngrok rate limit reached or account issue");
+    }
+    
+    console.log("\n⚠️  Server will run without public ngrok tunnel");
+    console.log("   You can still access locally at: http://localhost:5000\n");
+    
+    return null;
+  }
+}
+
+async function startServer() {
+  const server = app.listen(5000, "0.0.0.0", async () => {
+    console.log("🚀 Server running on port 5000");
+    console.log("📍 Local access: http://localhost:5000\n");
+    console.log("💡 Ngrok tunnel disabled for local development");
+
+    // ngrok tunnel disabled - uncomment if needed for remote access
+    // setTimeout(async () => {
+    //   await startNgrokTunnel();
+    // }, 500);
+  });
+}
+
+startServer();

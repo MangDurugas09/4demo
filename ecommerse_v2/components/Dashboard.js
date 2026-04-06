@@ -6,22 +6,24 @@ import {
   Image,
   TouchableOpacity,
   TextInput,
-  Alert,
   ScrollView,
   Animated,
+  Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import axios from 'axios';
+import FontAwesome from 'react-native-vector-icons/FontAwesome6';
+import { showClientAlert } from '../utils/showClientAlert';
 
 export default function Dashboard({ colors, apiBaseUrl, user, isActive, onScroll, onLogout, onUserRefresh }) {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
   });
+  const [activeFaq, setActiveFaq] = useState(null);
   const [profile, setProfile] = useState({
     name: '',
     email: '',
@@ -29,6 +31,42 @@ export default function Dashboard({ colors, apiBaseUrl, user, isActive, onScroll
     contact: '',
     avatar: 'https://www.pngmart.com/files/23/Profile-PNG-Photo.png',
   });
+  const faqItems = [
+    {
+      id: 'faq-1',
+      question: 'How do I know if my payment was received?',
+      answer: 'After submitting your receipt, refresh your payment status. Once verified, your bill status changes to Paid or Completed.',
+    },
+    {
+      id: 'faq-2',
+      question: 'What should I do if I forgot my password?',
+      answer: 'Use the Forgot Password option in the login modal, provide your account details, then set your new password.',
+    },
+    {
+      id: 'faq-3',
+      question: 'Can I update my profile information?',
+      answer: 'Yes. Open Profile, tap the edit icon, update your details, then tap Save at the bottom.',
+    },
+    {
+      id: 'faq-4',
+      question: 'Who do I contact during an electrical emergency?',
+      answer: 'Go to the Maintenance tab for emergency hotlines and available utility personnel contacts.',
+    },
+  ];
+  const getGlassContainerStyle = () => {
+    const darkMode = colors.mode === 'dark';
+
+    return {
+      backgroundColor: darkMode ? 'rgba(15, 23, 42, 0.4)' : 'rgba(255, 255, 255, 0.62)',
+      borderColor: darkMode ? 'rgba(148, 163, 184, 0.35)' : 'rgba(255, 255, 255, 0.74)',
+      ...(Platform.OS === 'web'
+        ? {
+            backdropFilter: 'blur(14px) saturate(135%)',
+            WebkitBackdropFilter: 'blur(14px) saturate(135%)',
+          }
+        : {}),
+    };
+  };
 
   const mapUserToProfile = (userData) => ({
     name: userData.name || userData.username || '',
@@ -62,7 +100,7 @@ export default function Dashboard({ colors, apiBaseUrl, user, isActive, onScroll
         setProfile(mapUserToProfile(response.data));
       } catch (error) {
         console.error('Error fetching profile:', error);
-        Alert.alert('Error', error?.message || 'Failed to load profile data');
+        showClientAlert('Error', error?.message || 'Failed to load profile data');
       } finally {
         setLoading(false);
       }
@@ -75,7 +113,7 @@ export default function Dashboard({ colors, apiBaseUrl, user, isActive, onScroll
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (!permission.granted) {
-      Alert.alert('Permission required', 'Allow access to gallery');
+      showClientAlert('Permission required', 'Allow access to gallery');
       return;
     }
 
@@ -96,7 +134,7 @@ export default function Dashboard({ colors, apiBaseUrl, user, isActive, onScroll
 
   const handleSave = async () => {
     if (!apiBaseUrl || !user?._id) {
-      Alert.alert('Error', 'No user is logged in');
+      showClientAlert('Error', 'No user is logged in');
       return;
     }
 
@@ -104,26 +142,26 @@ export default function Dashboard({ colors, apiBaseUrl, user, isActive, onScroll
       await axios.put(`${apiBaseUrl}/users/${user._id}`, profile, apiHeaders);
       onUserRefresh?.(profile);
       setIsEditing(false);
-      Alert.alert('Saved', 'Profile updated successfully!');
+      showClientAlert('Saved', 'Profile updated successfully!');
     } catch (error) {
       console.error('Error saving profile:', error);
-      Alert.alert('Error', 'Failed to save profile');
+      showClientAlert('Error', 'Failed to save profile');
     }
   };
 
   const handleChangePassword = async () => {
     if (!apiBaseUrl || !user?._id) {
-      Alert.alert('Error', 'No user is logged in');
+      showClientAlert('Error', 'No user is logged in');
       return;
     }
 
     if (!passwordForm.currentPassword || !passwordForm.newPassword) {
-      Alert.alert('Error', 'Please complete the password form');
+      showClientAlert('Error', 'Please complete the password form');
       return;
     }
 
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      Alert.alert('Error', 'New password confirmation does not match');
+      showClientAlert('Error', 'New password confirmation does not match');
       return;
     }
 
@@ -132,17 +170,25 @@ export default function Dashboard({ colors, apiBaseUrl, user, isActive, onScroll
         currentPassword: passwordForm.currentPassword,
         newPassword: passwordForm.newPassword,
       }, apiHeaders);
-      Alert.alert('Success', response.data.message);
+      showClientAlert('Success', response.data.message);
       setPasswordForm({
         currentPassword: '',
         newPassword: '',
         confirmPassword: '',
       });
-      setShowPasswordForm(false);
     } catch (error) {
       console.error('Error changing password:', error);
-      Alert.alert('Error', error.response?.data?.message || 'Failed to change password');
+      showClientAlert('Error', error.response?.data?.message || 'Failed to change password');
     }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setPasswordForm({
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: '',
+    });
   };
 
   if (loading) {
@@ -163,22 +209,19 @@ export default function Dashboard({ colors, apiBaseUrl, user, isActive, onScroll
       onScroll={onScroll}
       scrollEventThrottle={16}
     >
-      <View style={[styles.mainContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <View style={[styles.mainContainer, getGlassContainerStyle()]}>
         <View style={styles.sectionBlock}>
           <View style={styles.profileHeader}>
             <Text style={[styles.profileTitle, { color: colors.text }]}>Profile</Text>
 
             {!isEditing ? (
-              <TouchableOpacity onPress={() => setIsEditing(true)}>
-                <Text style={[styles.editButton, { color: colors.accent }]}>Edit</Text>
+              <TouchableOpacity style={styles.iconActionButton} onPress={() => setIsEditing(true)}>
+                <FontAwesome name="ellipsis" size={24} color={colors.accent} />
               </TouchableOpacity>
             ) : (
               <View style={styles.editButtons}>
-                <TouchableOpacity onPress={() => setIsEditing(false)}>
-                <Text style={[styles.cancelButton, { color: colors.mutedText }]}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={handleSave}>
-                  <Text style={[styles.saveButton, { color: colors.accent }]}>Save</Text>
+                <TouchableOpacity style={styles.iconActionButton} onPress={handleCancelEdit}>
+                  <FontAwesome name="xmark" size={24} color={colors.mutedText} />
                 </TouchableOpacity>
               </View>
             )}
@@ -251,6 +294,55 @@ export default function Dashboard({ colors, apiBaseUrl, user, isActive, onScroll
               <Text style={[styles.fieldValue, { color: colors.text }]}>{profile.contact}</Text>
             )}
           </View>
+
+          {isEditing && (
+            <>
+              <View style={styles.passwordForm}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Change Password</Text>
+                <TextInput
+                  style={[styles.passwordInput, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]}
+                  placeholder="Current Password"
+                  placeholderTextColor={colors.mutedText}
+                  secureTextEntry
+                  value={passwordForm.currentPassword}
+                  onChangeText={(text) => setPasswordForm({ ...passwordForm, currentPassword: text })}
+                />
+                <TextInput
+                  style={[styles.passwordInput, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]}
+                  placeholder="New Password"
+                  placeholderTextColor={colors.mutedText}
+                  secureTextEntry
+                  value={passwordForm.newPassword}
+                  onChangeText={(text) => setPasswordForm({ ...passwordForm, newPassword: text })}
+                />
+                <TextInput
+                  style={[styles.passwordInput, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]}
+                  placeholder="Confirm New Password"
+                  placeholderTextColor={colors.mutedText}
+                  secureTextEntry
+                  value={passwordForm.confirmPassword}
+                  onChangeText={(text) => setPasswordForm({ ...passwordForm, confirmPassword: text })}
+                />
+                <TouchableOpacity style={[styles.actionButton, { backgroundColor: colors.accent }]} onPress={handleChangePassword}>
+                  <Text style={{ color: colors.darkBg, fontWeight: 'bold' }}>Update Password</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.saveBottomButton, { backgroundColor: colors.accent }]}
+                onPress={handleSave}
+              >
+                <FontAwesome
+                  name="check"
+                  size={18}
+                  color={colors.mode === 'dark' ? '#0b1020' : '#ffffff'}
+                />
+                <Text style={[styles.saveBottomButtonText, { color: colors.mode === 'dark' ? '#0b1020' : '#ffffff' }]}>
+                  Save
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
 
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
@@ -265,44 +357,24 @@ export default function Dashboard({ colors, apiBaseUrl, user, isActive, onScroll
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
         <View style={styles.sectionBlock}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Change Password</Text>
-          <TouchableOpacity onPress={() => setShowPasswordForm((value) => !value)}>
-            <Text style={[styles.linkText, { color: colors.accent }]}>
-              {showPasswordForm ? 'Hide Password Form' : 'Open Password Form'}
-            </Text>
-          </TouchableOpacity>
-
-          {showPasswordForm && (
-            <View style={styles.passwordForm}>
-              <TextInput
-                style={[styles.passwordInput, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]}
-                placeholder="Current Password"
-                placeholderTextColor={colors.mutedText}
-                secureTextEntry
-                value={passwordForm.currentPassword}
-                onChangeText={(text) => setPasswordForm({ ...passwordForm, currentPassword: text })}
-              />
-              <TextInput
-                style={[styles.passwordInput, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]}
-                placeholder="New Password"
-                placeholderTextColor={colors.mutedText}
-                secureTextEntry
-                value={passwordForm.newPassword}
-                onChangeText={(text) => setPasswordForm({ ...passwordForm, newPassword: text })}
-              />
-              <TextInput
-                style={[styles.passwordInput, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]}
-                placeholder="Confirm New Password"
-                placeholderTextColor={colors.mutedText}
-                secureTextEntry
-                value={passwordForm.confirmPassword}
-                onChangeText={(text) => setPasswordForm({ ...passwordForm, confirmPassword: text })}
-              />
-              <TouchableOpacity style={[styles.actionButton, { backgroundColor: colors.accent }]} onPress={handleChangePassword}>
-                <Text style={{ color: colors.darkBg, fontWeight: 'bold' }}>Update Password</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>FAQ</Text>
+          {faqItems.map((item) => {
+            const expanded = activeFaq === item.id;
+            return (
+              <View key={item.id} style={[styles.faqItem, { borderColor: colors.border, backgroundColor: colors.inputBg }]}>
+                <TouchableOpacity
+                  style={styles.faqHeader}
+                  onPress={() => setActiveFaq((current) => (current === item.id ? null : item.id))}
+                >
+                  <Text style={[styles.faqQuestion, { color: colors.text }]}>{item.question}</Text>
+                  <Text style={[styles.faqToggle, { color: colors.mutedText }]}>{expanded ? '-' : '+'}</Text>
+                </TouchableOpacity>
+                {expanded && (
+                  <Text style={[styles.faqAnswer, { color: colors.mutedText }]}>{item.answer}</Text>
+                )}
+              </View>
+            );
+          })}
         </View>
       </View>
     </Animated.ScrollView>
@@ -321,6 +393,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 18,
     marginBottom: 20,
+    backgroundColor: 'rgba(17, 29, 51, 0.4)',
+    backdropFilter: 'blur(10px)',
+    borderColor: 'rgba(148, 163, 184, 0.2)',
   },
   sectionBlock: {
     width: '100%',
@@ -332,10 +407,17 @@ const styles = StyleSheet.create({
   },
   profileTitle: { fontSize: 20, fontWeight: '800' },
   editButtons: { flexDirection: 'row' },
+  iconActionButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   avatarContainer: { alignItems: 'center', marginBottom: 12 },
   avatar: { width: 100, height: 100, borderRadius: 50 },
-  profileField: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  fieldLabel: { width: 70, fontWeight: '600' },
+  profileField: { marginBottom: 12 },
+  fieldLabel: { fontWeight: '600', marginBottom: 4 },
   fieldValue: { flex: 1 },
   input: {
     borderWidth: 1,
@@ -354,21 +436,63 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   actionButton: {
-    padding: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
     borderRadius: 8,
     alignItems: 'center',
     marginTop: 10,
   },
-  linkText: {
-    fontWeight: '700',
-  },
   passwordForm: {
-    marginTop: 12,
+    marginTop: 8,
+    marginBottom: 10,
   },
   passwordInput: {
     borderWidth: 1,
     borderRadius: 8,
     padding: 10,
     marginBottom: 10,
+  },
+  saveBottomButton: {
+    marginTop: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 10,
+  },
+  saveBottomButtonText: {
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  faqItem: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 10,
+  },
+  faqHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  faqQuestion: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  faqToggle: {
+    fontSize: 18,
+    fontWeight: '700',
+    minWidth: 14,
+    textAlign: 'center',
+  },
+  faqAnswer: {
+    marginTop: 8,
+    fontSize: 12,
+    lineHeight: 18,
   },
 });
