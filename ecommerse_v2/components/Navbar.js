@@ -167,7 +167,7 @@ const Navbar = ({
   const renderLogo = () => (
     <TouchableOpacity 
       onPress={() => {
-        onTabPress(isLoggedIn ? 'dashboard' : 'company');
+        onTabPress('company');
       }}
       style={styles.logoContainer}
       activeOpacity={0.7}
@@ -177,30 +177,12 @@ const Navbar = ({
         style={styles.logo}
         resizeMode="contain"
       />
-      <View style={[styles.brandTextWrap, isMobile && styles.brandTextWrapMobile]}>
-        <View style={[styles.brandHeadingRow, IS_WEB && !isMobile && styles.brandHeadingRowWeb]}>
-          <Text
-            style={[
-              styles.brandText,
-              isMobile ? styles.brandTextMobile : styles.brandTextDesktop,
-              IS_WEB && !isMobile && styles.brandTextWeb,
-              { color: colors.text },
-            ]}
-          >
-            ELECTRIPAY
-          </Text>
-          {IS_WEB && !isMobile && !isLoggedIn && (
-            <Text style={[styles.brandTaglineInline, { color: colors.mutedText }]}>
-              Track usage, pay bills, and manage your account in one place.
-            </Text>
-          )}
+      {!isMobile && (
+        <View>
+          <Text style={[styles.brandText, { color: colors.text }]}>ELECTRIPAY</Text>
+          <Text style={[styles.brandSubtext, { color: colors.mutedText }]}>Track usage, pay bills, and manage your account in one place.</Text>
         </View>
-        {!IS_WEB && !isMobile && (
-          <Text style={[styles.brandSubtext, { color: colors.mutedText }]}>
-            Track usage, pay bills, and manage your account in one place.
-          </Text>
-        )}
-      </View>
+      )}
     </TouchableOpacity>
   );
 
@@ -221,7 +203,7 @@ const Navbar = ({
 
     return (
       <View style={styles.navTabsContainer}>
-        {['dashboard', 'payment', 'maintenance', 'profile'].map((tab) => (
+        {['dashboard', 'payment', 'profile'].map((tab) => (
           <TouchableOpacity
             key={tab}
             onPress={() => handleNavPress(tab)}
@@ -307,7 +289,7 @@ const Navbar = ({
         >
           <View style={styles.mobileMenuHeader}>
             <TouchableOpacity onPress={handleMenuClose} style={styles.closeButton}>
-              <FontAwesome name="xmark" size={18} color={colors.text} />
+              <Text style={[styles.closeButtonText, { color: colors.text }]}>{'\u2715'}</Text>
             </TouchableOpacity>
           </View>
 
@@ -317,7 +299,7 @@ const Navbar = ({
                 <Text style={[styles.mobileMenuSectionTitle, { color: colors.mutedText }]}>
                   NAVIGATION
                 </Text>
-                {['dashboard', 'payment', 'maintenance', 'profile'].map((tab) => (
+                {['dashboard', 'payment', 'profile'].map((tab) => (
                   <TouchableOpacity
                     key={tab}
                     onPress={() => handleNavPress(tab)}
@@ -422,10 +404,7 @@ const Navbar = ({
       <View
         style={[
           styles.navbar,
-          {
-            backgroundColor: colors.surface,
-            borderBottomColor: colors.border,
-          },
+          getGlassStyle('strong'),
         ]}
       >
         <View
@@ -442,15 +421,9 @@ const Navbar = ({
           </View>
 
           <View style={styles.rightSection}>
-            {isMobile && isLoggedIn && (
-              <>
-                {IS_WEB && renderThemeToggle()}
-                {renderBurgerMenu()}
-              </>
-            )}
+            {isMobile && isLoggedIn && renderBurgerMenu()}
             {isMobile && !isLoggedIn && (
               <View style={styles.mobileAuthButtons}>
-                {renderThemeToggle()}
                 <TouchableOpacity
                   onPress={() => onOpenAuth('login')}
                   style={[styles.mobileAuthIconButton, { borderColor: colors.accent, borderWidth: 1.5 }]}
@@ -506,26 +479,10 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 12,
     flexShrink: 0,
     paddingVertical: 4,
-  },
-  brandTextWrap: {
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-  },
-  brandTextWrapMobile: {
-    alignItems: 'center',
-  },
-  brandHeadingRow: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-  },
-  brandHeadingRowWeb: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
   },
   logo: {
     width: 40,
@@ -534,25 +491,9 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   brandText: {
-    fontFamily: 'ElectroFont1',
+    fontSize: 16,
+    fontWeight: '700',
     letterSpacing: 0.5,
-    textAlign: 'center',
-  },
-  brandTextDesktop: {
-    fontSize: 20,
-  },
-  brandTextWeb: {
-    fontSize: 30,
-    lineHeight: 34,
-  },
-  brandTextMobile: {
-    fontSize: 24,
-  },
-  brandTaglineInline: {
-    fontSize: 14,
-    lineHeight: 18,
-    fontWeight: '600',
-    maxWidth: 420,
   },
   brandSubtext: {
     fontSize: 10,
@@ -576,7 +517,7 @@ const styles = StyleSheet.create({
     transition: 'all 200ms ease',
   },
   tabButtonText: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '500',
   },
   rightSection: {
@@ -724,7 +665,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 6,
     marginVertical: 4,
-    overflow: 'hidden',
   },
   mobileMenuItemText: {
     fontSize: 14,
