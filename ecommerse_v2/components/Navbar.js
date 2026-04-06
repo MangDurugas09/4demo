@@ -167,7 +167,7 @@ const Navbar = ({
   const renderLogo = () => (
     <TouchableOpacity 
       onPress={() => {
-        onTabPress('company');
+        onTabPress(isLoggedIn ? 'dashboard' : 'company');
       }}
       style={styles.logoContainer}
       activeOpacity={0.7}
@@ -178,9 +178,13 @@ const Navbar = ({
         resizeMode="contain"
       />
       {!isMobile && (
-        <View>
+        <View style={styles.brandRow}>
           <Text style={[styles.brandText, { color: colors.text }]}>ELECTRIPAY</Text>
-          <Text style={[styles.brandSubtext, { color: colors.mutedText }]}>Track usage, pay bills, and manage your account in one place.</Text>
+          {!isLoggedIn && (
+            <Text style={[styles.brandSubtext, { color: colors.mutedText }]}>
+              Track usage, pay bills, and manage your account in one place.
+            </Text>
+          )}
         </View>
       )}
     </TouchableOpacity>
@@ -203,7 +207,7 @@ const Navbar = ({
 
     return (
       <View style={styles.navTabsContainer}>
-        {['dashboard', 'payment', 'profile'].map((tab) => (
+        {['dashboard', 'payment', 'maintenance', 'profile'].map((tab) => (
           <TouchableOpacity
             key={tab}
             onPress={() => handleNavPress(tab)}
@@ -299,7 +303,7 @@ const Navbar = ({
                 <Text style={[styles.mobileMenuSectionTitle, { color: colors.mutedText }]}>
                   NAVIGATION
                 </Text>
-                {['dashboard', 'payment', 'profile'].map((tab) => (
+                {['dashboard', 'payment', 'maintenance', 'profile'].map((tab) => (
                   <TouchableOpacity
                     key={tab}
                     onPress={() => handleNavPress(tab)}
@@ -479,10 +483,16 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: 12,
     flexShrink: 0,
     paddingVertical: 4,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flexShrink: 1,
   },
   logo: {
     width: 40,
@@ -491,17 +501,18 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   brandText: {
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+    fontFamily: 'ElectroFont1',
+    fontSize: 30,
+    letterSpacing: 0.8,
+    lineHeight: 34,
   },
   brandSubtext: {
-    fontSize: 10,
-    fontWeight: '500',
-    marginTop: 4,
-    lineHeight: 14,
-    maxWidth: 200,
+    fontSize: 16,
+    fontWeight: '600',
+    lineHeight: 22,
+    maxWidth: 430,
     color: '#999',
+    flexShrink: 1,
   },
   navTabsContainer: {
     marginTop: 4,
