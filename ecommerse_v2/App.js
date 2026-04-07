@@ -825,6 +825,7 @@ export default function App() {
           colors={colors}
           apiBaseUrl={apiUrl}
           isActive
+          isPublicWebView
         />
       );
     }

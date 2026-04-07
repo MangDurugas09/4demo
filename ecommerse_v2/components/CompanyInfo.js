@@ -1,11 +1,38 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { StyleSheet, View, Text, Linking, TouchableOpacity, Animated } from 'react-native';
+import { StyleSheet, View, Text, Linking, TouchableOpacity, Animated, Platform } from 'react-native';
 import axios from 'axios';
 
-export default function CompanyInfo({ colors, apiBaseUrl, isActive, onScroll }) {
+const IS_WEB = Platform.OS === 'web';
+
+export default function CompanyInfo({ colors, apiBaseUrl, isActive, onScroll, isPublicWebView = false }) {
   const [stats, setStats] = useState({ totalUsers: 0 });
   const scrollRef = useRef(null);
   const apiHeaders = { headers: { 'ngrok-skip-browser-warning': 'true' } };
+  const getGlassStyle = (variant = 'card') => {
+    if (!isPublicWebView || !IS_WEB) {
+      return {};
+    }
+
+    const darkMode = colors.mode === 'dark';
+    const isShell = variant === 'shell';
+
+    return {
+      backgroundColor: darkMode
+        ? isShell
+          ? 'rgba(15, 23, 42, 0.34)'
+          : 'rgba(15, 23, 42, 0.46)'
+        : isShell
+          ? 'rgba(255, 255, 255, 0.36)'
+          : 'rgba(255, 255, 255, 0.62)',
+      borderColor: darkMode ? 'rgba(148, 163, 184, 0.34)' : 'rgba(255, 255, 255, 0.8)',
+      backdropFilter: isShell ? 'blur(16px) saturate(138%)' : 'blur(14px) saturate(135%)',
+      WebkitBackdropFilter: isShell ? 'blur(16px) saturate(138%)' : 'blur(14px) saturate(135%)',
+      shadowColor: darkMode ? '#020617' : '#94a3b8',
+      shadowOffset: { width: 0, height: isShell ? 18 : 10 },
+      shadowOpacity: isShell ? 0.28 : 0.2,
+      shadowRadius: isShell ? 30 : 20,
+    };
+  };
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -73,8 +100,9 @@ export default function CompanyInfo({ colors, apiBaseUrl, isActive, onScroll }) 
       onScroll={onScroll}
       scrollEventThrottle={16}
     >
+      <View style={[isPublicWebView ? styles.publicWebShell : null, getGlassStyle('shell')]}>
+      <View style={[styles.card, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }, getGlassStyle()]}>
 
-      <View style={[styles.card, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
         <Text style={[styles.cardTitle, { color: colors.text }]}>What This Project Offers</Text>
         <Text style={[styles.cardText, { color: colors.text }]}>
           Electripay is a mobile application for customers who want a simpler way to manage electricity billing.
@@ -83,7 +111,7 @@ export default function CompanyInfo({ colors, apiBaseUrl, isActive, onScroll }) 
         </Text>
       </View>
 
-      <View style={[styles.statsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <View style={[styles.statsCard, { backgroundColor: colors.surface, borderColor: colors.border }, getGlassStyle()]}>
         <View style={styles.statItem}>
           <Text style={[styles.statValue, { color: colors.accent }]}>{stats.totalUsers}</Text>
           <Text style={[styles.statLabel, { color: colors.mutedText }]}>Registered Users</Text>
@@ -102,11 +130,11 @@ export default function CompanyInfo({ colors, apiBaseUrl, isActive, onScroll }) 
         </View>
       </View>
 
-      <View style={[styles.card, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+      <View style={[styles.card, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }, getGlassStyle()]}>
         <Text style={[styles.cardTitle, { color: colors.text }]}>Core Features</Text>
         <View style={styles.featuresGrid}>
           {features.map((feature) => (
-            <View key={feature.title} style={[styles.featureBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View key={feature.title} style={[styles.featureBox, { backgroundColor: colors.surface, borderColor: colors.border }, getGlassStyle()]}>
               <Text style={[styles.featureTitle, { color: colors.text }]}>{feature.title}</Text>
               <Text style={[styles.featureDesc, { color: colors.mutedText }]}>{feature.description}</Text>
             </View>
@@ -114,7 +142,7 @@ export default function CompanyInfo({ colors, apiBaseUrl, isActive, onScroll }) 
         </View>
       </View>
 
-      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }, getGlassStyle()]}>
         <Text style={[styles.cardTitle, { color: colors.text }]}>How It Works</Text>
         {workflow.map((step) => (
           <Text key={step} style={[styles.cardText, { color: colors.text, marginBottom: 8 }]}>
@@ -123,7 +151,7 @@ export default function CompanyInfo({ colors, apiBaseUrl, isActive, onScroll }) 
         ))}
       </View>
 
-      <View style={[styles.card, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+      <View style={[styles.card, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }, getGlassStyle()]}>
         <Text style={[styles.cardTitle, { color: colors.text }]}>Why It Matters</Text>
         {benefits.map((benefit) => (
           <Text key={benefit} style={[styles.cardText, { color: colors.text, marginBottom: 8 }]}>
@@ -132,7 +160,7 @@ export default function CompanyInfo({ colors, apiBaseUrl, isActive, onScroll }) 
         ))}
       </View>
 
-      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }, getGlassStyle()]}>
         <Text style={[styles.cardTitle, { color: colors.text }]}>Project Snapshot</Text>
         <Text style={[styles.commitmentText, { color: colors.text }]}>Audience: {appDetails.audience}</Text>
         <Text style={[styles.commitmentText, { color: colors.text }]}>Purpose: {appDetails.purpose}</Text>
@@ -140,7 +168,7 @@ export default function CompanyInfo({ colors, apiBaseUrl, isActive, onScroll }) 
         <Text style={[styles.commitmentText, { color: colors.text }]}>Backend: Express API with MongoDB</Text>
       </View>
 
-      <View style={[styles.card, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }]}>
+      <View style={[styles.card, { backgroundColor: colors.surfaceAlt, borderColor: colors.border }, getGlassStyle()]}>
         <Text style={[styles.cardTitle, { color: colors.text }]}>Support and Contact</Text>
         {contactInfo.map((contact) => (
           <TouchableOpacity
@@ -159,10 +187,11 @@ export default function CompanyInfo({ colors, apiBaseUrl, isActive, onScroll }) 
         ))}
       </View>
 
-      <View style={[styles.footerCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <View style={[styles.footerCard, { backgroundColor: colors.surface, borderColor: colors.border }, getGlassStyle()]}>
         <Text style={[styles.footerText, { color: colors.mutedText }]}>
           Copyright 2026 Electripay. Built to simplify electricity billing and payment tracking.
         </Text>
+      </View>
       </View>
     </Animated.ScrollView>
   );
@@ -172,6 +201,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingBottom: 30,
+  },
+  publicWebShell: {
+    borderRadius: 28,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 14,
+    marginTop: 10,
+    overflow: 'hidden',
   },
   headerCard: {
     borderRadius: 18,
